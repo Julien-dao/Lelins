@@ -1,0 +1,22 @@
+# Dépendances pour le générateur d'images Lelins
+# Installer avec : pip install -r scripts/requirements.txt
+#
+# Note PyTorch :
+# - macOS Apple Silicon : la version par défaut inclut MPS, rien de spécial à faire.
+# - Windows NVIDIA : utiliser l'index CUDA approprié, voir docs/INSTALL.md.
+# - Linux NVIDIA : idem, index CUDA.
+
+torch>=2.2.0
+torchvision>=0.17.0
+
+diffusers>=0.27.0
+transformers>=4.40.0
+accelerate>=0.29.0
+safetensors>=0.4.0
+huggingface-hub>=0.22.0
+
+# Traitement image
+Pillow>=10.0.0
+
+# Divers
+tqdm>=4.66.0

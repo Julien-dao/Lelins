@@ -1,0 +1,30 @@
+# Environnements Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Modèles téléchargés (plusieurs Go, ne jamais committer)
+models/
+*.safetensors
+*.ckpt
+*.bin
+
+# Cache HuggingFace local
+.cache/
+.huggingface/
+
+# Sorties d'images
+outputs/*
+!outputs/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp

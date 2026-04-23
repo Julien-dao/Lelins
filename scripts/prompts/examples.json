@@ -1,0 +1,47 @@
+[
+  {
+    "name": "boxer-noir-coton-studio",
+    "garment": "black cotton boxer briefs, elastic waistband with subtle Lelins logo",
+    "model_style": "athletic",
+    "background": "studio_white",
+    "pose": "standing front view, arms relaxed at sides, confident posture",
+    "seed": 1001,
+    "variations": 2
+  },
+  {
+    "name": "slip-blanc-coton-studio",
+    "garment": "classic white cotton briefs, clean cut, minimalist",
+    "model_style": "slim",
+    "background": "studio_grey",
+    "pose": "three-quarter view, hands on hips",
+    "seed": 1002,
+    "variations": 2
+  },
+  {
+    "name": "trunk-marine-outdoor",
+    "garment": "navy blue trunks, soft microfiber fabric",
+    "model_style": "athletic",
+    "background": "outdoor_beach",
+    "pose": "standing on the beach, looking at horizon, natural light",
+    "seed": 1003,
+    "variations": 1
+  },
+  {
+    "name": "boxer-gris-loft",
+    "garment": "heather grey boxer briefs, soft cotton blend",
+    "model_style": "mature",
+    "background": "loft",
+    "pose": "sitting on edge of bed, relaxed morning mood",
+    "seed": 1004,
+    "variations": 1
+  },
+  {
+    "name": "tshirt-blanc-studio",
+    "garment": "fitted white crew neck t-shirt, premium cotton, and dark denim jeans",
+    "model_style": "casual",
+    "background": "studio_beige",
+    "pose": "three-quarter view, hands in pockets, smiling",
+    "seed": 1005,
+    "variations": 2
+  }
+]
