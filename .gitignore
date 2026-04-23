@@ -8,3 +8,6 @@ dist-ssr
 .idea
 *.log
 *.tsbuildinfo
+
+# Copié par scripts/copy-ffmpeg.js (postinstall)
+public/ffmpeg/

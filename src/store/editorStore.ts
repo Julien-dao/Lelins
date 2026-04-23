@@ -1,18 +1,19 @@
 import { create } from 'zustand';
-import type { FilterState, SocialAccount, SocialNetwork, TextLayer } from '../types';
+import type {
+  FilterState,
+  MediaSource,
+  SocialAccount,
+  SocialNetwork,
+  TextLayer,
+  VideoState,
+} from '../types';
 import { DEFAULT_FILTER } from '../lib/filters';
 import { uid } from '../lib/id';
 import { FORMATS } from '../lib/formats';
 
-interface ImageSource {
-  src: string;
-  naturalWidth: number;
-  naturalHeight: number;
-  name: string;
-}
-
 interface EditorState {
-  image: ImageSource | null;
+  media: MediaSource | null;
+  video: VideoState;
   format: SocialNetwork;
   layers: TextLayer[];
   selectedLayerId: string | null;
@@ -21,8 +22,12 @@ interface EditorState {
   accounts: SocialAccount[];
   selectedAccountIds: string[];
 
-  setImage: (image: ImageSource | null) => void;
+  setMedia: (media: MediaSource | null) => void;
   setFormat: (format: SocialNetwork) => void;
+
+  setVideoTime: (t: number) => void;
+  setVideoTrim: (start: number, end: number) => void;
+  setVideoPlaying: (playing: boolean) => void;
 
   addTextLayer: (kind: 'text' | 'subtitle') => void;
   updateLayer: (id: string, patch: Partial<TextLayer>) => void;
@@ -37,6 +42,7 @@ interface EditorState {
   setCaption: (caption: string) => void;
 
   addAccount: (account: Omit<SocialAccount, 'id' | 'createdAt'>) => void;
+  updateAccount: (id: string, patch: Partial<SocialAccount>) => void;
   removeAccount: (id: string) => void;
   toggleAccount: (id: string) => void;
 }
@@ -86,8 +92,16 @@ function makeTextLayer(kind: 'text' | 'subtitle', format: SocialNetwork): TextLa
   };
 }
 
+const DEFAULT_VIDEO: VideoState = {
+  currentTime: 0,
+  trimStart: 0,
+  trimEnd: 0,
+  playing: false,
+};
+
 export const useEditor = create<EditorState>((set, get) => ({
-  image: null,
+  media: null,
+  video: DEFAULT_VIDEO,
   format: 'instagram-feed',
   layers: [],
   selectedLayerId: null,
@@ -96,8 +110,27 @@ export const useEditor = create<EditorState>((set, get) => ({
   accounts: loadAccounts(),
   selectedAccountIds: [],
 
-  setImage: (image) => set({ image }),
+  setMedia: (media) =>
+    set({
+      media,
+      video:
+        media?.kind === 'video'
+          ? { currentTime: 0, trimStart: 0, trimEnd: media.duration, playing: false }
+          : DEFAULT_VIDEO,
+    }),
+
   setFormat: (format) => set({ format }),
+
+  setVideoTime: (t) => set((s) => ({ video: { ...s.video, currentTime: t } })),
+  setVideoTrim: (start, end) =>
+    set((s) => ({
+      video: {
+        ...s.video,
+        trimStart: Math.max(0, start),
+        trimEnd: Math.max(start + 0.1, end),
+      },
+    })),
+  setVideoPlaying: (playing) => set((s) => ({ video: { ...s.video, playing } })),
 
   addTextLayer: (kind) => {
     const layer = makeTextLayer(kind, get().format);
@@ -145,6 +178,13 @@ export const useEditor = create<EditorState>((set, get) => ({
       return { accounts };
     });
   },
+
+  updateAccount: (id, patch) =>
+    set((s) => {
+      const accounts = s.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a));
+      persistAccounts(accounts);
+      return { accounts };
+    }),
 
   removeAccount: (id) =>
     set((s) => {

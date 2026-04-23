@@ -41,11 +41,11 @@ export interface TextLayer {
 }
 
 export interface FilterState {
-  brightness: number; // -1 .. 1 (0 = neutral)
-  contrast: number;   // -100 .. 100 (0 = neutral, Konva convention)
-  saturation: number; // -2 .. 10 (0 = neutral, Konva hsl)
-  hue: number;        // -180 .. 180
-  blur: number;       // 0 .. 20
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  hue: number;
+  blur: number;
   grayscale: boolean;
   sepia: boolean;
   invert: boolean;
@@ -57,6 +57,10 @@ export interface SocialAccount {
   network: SocialNetwork;
   handle: string;
   token: string;
+  /** Optional: Instagram/Facebook Business Account or Page ID */
+  externalId?: string;
+  /** Optional: URL where the media will be temporarily hosted (IG/FB need a public URL) */
+  mediaHost?: string;
   createdAt: number;
 }
 
@@ -64,4 +68,33 @@ export interface CaptionState {
   text: string;
   hashtags: string[];
   mentions: string[];
+}
+
+export type MediaKind = 'image' | 'video';
+
+export interface ImageSource {
+  kind: 'image';
+  src: string;
+  naturalWidth: number;
+  naturalHeight: number;
+  name: string;
+}
+
+export interface VideoSource {
+  kind: 'video';
+  src: string;
+  file: File;
+  naturalWidth: number;
+  naturalHeight: number;
+  duration: number;
+  name: string;
+}
+
+export type MediaSource = ImageSource | VideoSource;
+
+export interface VideoState {
+  currentTime: number;
+  trimStart: number;
+  trimEnd: number;
+  playing: boolean;
 }

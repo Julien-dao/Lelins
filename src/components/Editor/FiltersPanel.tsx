@@ -3,7 +3,8 @@ import { PRESETS, applyPreset, filterToCss } from '../../lib/filters';
 
 export function FiltersPanel() {
   const filter = useEditor((s) => s.filter);
-  const image = useEditor((s) => s.image);
+  const media = useEditor((s) => s.media);
+  const thumbSrc = media?.kind === 'image' ? media.src : undefined;
   const patch = useEditor((s) => s.patchFilter);
   const setFilter = useEditor((s) => s.setFilter);
   const reset = useEditor((s) => s.resetFilter);
@@ -34,7 +35,7 @@ export function FiltersPanel() {
                   className="aspect-square w-full bg-gradient-to-br from-neutral-700 to-neutral-900"
                   style={{
                     filter: css,
-                    backgroundImage: image ? `url(${image.src})` : undefined,
+                    backgroundImage: thumbSrc ? `url(${thumbSrc})` : undefined,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                   }}

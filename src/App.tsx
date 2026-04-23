@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Toolbar } from './components/Editor/Toolbar';
 import { EditorCanvas, type EditorCanvasHandle } from './components/Editor/EditorCanvas';
+import { VideoTimeline } from './components/Editor/VideoTimeline';
 import { LayersPanel } from './components/Editor/LayersPanel';
 import { TextInspector } from './components/Editor/TextInspector';
 import { FiltersPanel } from './components/Editor/FiltersPanel';
@@ -11,70 +12,117 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { useElementSize } from './hooks/useElementSize';
 import { useEditor } from './store/editorStore';
 import { canShareFiles, downloadBlob, shareFiles } from './lib/export';
-import { publish } from './lib/publishers';
+import { publish, type PublishResult } from './lib/publishers';
+import { exportVideo } from './lib/videoExport';
+import { renderOverlayPng } from './lib/overlayRender';
+import { getFormat } from './lib/formats';
 
 export default function App() {
   const canvasRef = useRef<EditorCanvasHandle>(null);
   const [containerRef, size] = useElementSize<HTMLDivElement>();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [publishResults, setPublishResults] = useState<PublishResult[]>([]);
 
-  const image = useEditor((s) => s.image);
+  const media = useEditor((s) => s.media);
   const layers = useEditor((s) => s.layers);
   const filter = useEditor((s) => s.filter);
   const caption = useEditor((s) => s.caption);
   const format = useEditor((s) => s.format);
+  const video = useEditor((s) => s.video);
   const accounts = useEditor((s) => s.accounts);
   const selectedAccountIds = useEditor((s) => s.selectedAccountIds);
 
-  // Keep a low-res thumbnail of the canvas in sync for the social previews.
+  // Keep a low-res thumbnail in sync for the social previews.
   useEffect(() => {
-    if (!image) {
+    if (!media) {
       setThumbnail(null);
       return;
     }
     const id = setTimeout(() => {
       const url = canvasRef.current?.toDataURL('image/jpeg', 0.7);
       if (url) setThumbnail(url);
-    }, 150);
+    }, 200);
     return () => clearTimeout(id);
-  }, [image, layers, filter, format]);
+  }, [media, layers, filter, format, video.currentTime]);
 
   const notify = useCallback((msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3200);
+    setTimeout(() => setToast(null), 3600);
   }, []);
 
   const handleExport = useCallback(
-    async (type: 'png' | 'jpeg') => {
-      if (!image) return;
+    async (type: 'png' | 'jpeg' | 'mp4') => {
+      if (!media) return;
+      if (type === 'mp4') {
+        if (media.kind !== 'video') return;
+        setExporting(true);
+        setExportProgress(0);
+        try {
+          const spec = getFormat(format);
+          const overlay = await renderOverlayPng(layers, spec.width, spec.height);
+          const blob = await exportVideo({
+            source: media,
+            trimStart: video.trimStart,
+            trimEnd: video.trimEnd,
+            width: spec.width,
+            height: spec.height,
+            overlayPng: overlay,
+            filter,
+            onProgress: (p) => setExportProgress(p),
+          });
+          const base = media.name.replace(/\.[^.]+$/, '') || 'lelins-export';
+          downloadBlob(blob, `${base}-${format}.mp4`);
+          notify('Export MP4 téléchargé.');
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          notify(`Erreur export vidéo : ${msg}`);
+        } finally {
+          setExporting(false);
+          setExportProgress(null);
+        }
+        return;
+      }
+
+      // Image exports.
       const blob = await canvasRef.current?.toBlob(
         type === 'png' ? 'image/png' : 'image/jpeg',
         0.95,
       );
       if (!blob) return;
-      const base = image.name.replace(/\.[^.]+$/, '') || 'lelins-export';
+      const base = media.name.replace(/\.[^.]+$/, '') || 'lelins-export';
       downloadBlob(blob, `${base}-${format}.${type === 'png' ? 'png' : 'jpg'}`);
       notify(`Export ${type.toUpperCase()} téléchargé.`);
     },
-    [image, format, notify],
+    [media, format, layers, video, filter, notify],
   );
 
-  const handleShare = useCallback(async () => {
-    if (!image) return;
+  const buildShareFile = useCallback(async (): Promise<File | null> => {
+    if (!media) return null;
+    if (media.kind === 'video') {
+      // Partage du fichier original — le partage natif ne burnera pas les overlays.
+      // (Export MP4 pour inclure les overlays.)
+      return media.file;
+    }
     const blob = await canvasRef.current?.toBlob('image/jpeg', 0.9);
-    if (!blob) return;
-    const file = new File([blob], `${format}.jpg`, { type: 'image/jpeg' });
+    if (!blob) return null;
+    return new File([blob], `${format}.jpg`, { type: 'image/jpeg' });
+  }, [media, format]);
+
+  const handleShare = useCallback(async () => {
+    const file = await buildShareFile();
+    if (!file) return;
     if (!canShareFiles([file])) {
-      // Fallback: copy caption to clipboard + download file.
       try {
         await navigator.clipboard.writeText(caption);
         notify('Partage natif indisponible — légende copiée, fichier téléchargé.');
       } catch {
         notify('Partage natif indisponible — fichier téléchargé.');
       }
-      downloadBlob(blob, file.name);
+      downloadBlob(file, file.name);
       return;
     }
     try {
@@ -84,33 +132,60 @@ export default function App() {
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.toLowerCase().includes('abort')) notify(`Partage annulé : ${msg}`);
     }
-  }, [image, format, caption, notify]);
+  }, [buildShareFile, caption, notify]);
 
   const handlePublish = useCallback(async () => {
-    if (!image || selectedAccountIds.length === 0) return;
+    if (!media || selectedAccountIds.length === 0) return;
     setPublishing(true);
+    setPublishResults([]);
     try {
-      const blob = await canvasRef.current?.toBlob('image/jpeg', 0.95);
-      if (!blob) {
+      let file: File | null;
+      if (media.kind === 'video') {
+        // Pour la publication, burn les overlays via FFmpeg avant envoi.
+        setExporting(true);
+        setExportProgress(0);
+        try {
+          const spec = getFormat(format);
+          const overlay = await renderOverlayPng(layers, spec.width, spec.height);
+          const blob = await exportVideo({
+            source: media,
+            trimStart: video.trimStart,
+            trimEnd: video.trimEnd,
+            width: spec.width,
+            height: spec.height,
+            overlayPng: overlay,
+            filter,
+            onProgress: (p) => setExportProgress(p),
+          });
+          file = new File([blob], `${format}.mp4`, { type: 'video/mp4' });
+        } finally {
+          setExporting(false);
+          setExportProgress(null);
+        }
+      } else {
+        const blob = await canvasRef.current?.toBlob('image/jpeg', 0.95);
+        file = blob ? new File([blob], `${format}.jpg`, { type: 'image/jpeg' }) : null;
+      }
+      if (!file) {
         notify('Impossible de générer le média.');
         return;
       }
-      const file = new File([blob], `${format}.jpg`, { type: 'image/jpeg' });
       const targets = accounts.filter((a) => selectedAccountIds.includes(a.id));
       const results = await Promise.all(
-        targets.map((account) => publish({ account, caption, file })),
+        targets.map((account) => publish({ account, caption, file: file! })),
       );
-      const configured = results.filter((r) => r.status === 'queued').length;
-      const pending = results.filter((r) => r.status === 'needs-config').length;
+      setPublishResults(results);
+      const ok = results.filter((r) => r.status === 'success').length;
+      const fail = results.length - ok;
       notify(
-        configured > 0
-          ? `${configured} publication(s) envoyée(s). ${pending} en attente de configuration.`
-          : `${pending} compte(s) : implémentation publisher prévue en itération 2.`,
+        fail === 0
+          ? `${ok} publication(s) réussie(s).`
+          : `${ok} OK · ${fail} en échec — voir l'onglet Comptes.`,
       );
     } finally {
       setPublishing(false);
     }
-  }, [image, selectedAccountIds, accounts, caption, format, notify]);
+  }, [media, selectedAccountIds, accounts, caption, format, layers, video, filter, notify]);
 
   return (
     <div className="flex h-full flex-col">
@@ -119,6 +194,8 @@ export default function App() {
         onShare={handleShare}
         onPublish={handlePublish}
         publishing={publishing}
+        exporting={exporting}
+        exportProgress={exportProgress}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -158,15 +235,62 @@ export default function App() {
               id: 'accounts',
               label: 'Comptes',
               icon: '👥',
-              content: <AccountsPanel />,
+              content: (
+                <div className="space-y-4">
+                  <AccountsPanel />
+                  {publishResults.length > 0 && (
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                      <div className="mb-2 text-xs font-semibold text-neutral-300">
+                        Dernière publication
+                      </div>
+                      <ul className="space-y-1 text-[11px]">
+                        {publishResults.map((r) => (
+                          <li key={r.accountId} className="flex gap-2">
+                            <span
+                              className={
+                                r.status === 'success'
+                                  ? 'text-green-400'
+                                  : r.status === 'cors-blocked'
+                                    ? 'text-amber-400'
+                                    : r.status === 'needs-config'
+                                      ? 'text-sky-400'
+                                      : 'text-red-400'
+                              }
+                            >
+                              ●
+                            </span>
+                            <span className="flex-1">
+                              {r.message}
+                              {r.url && (
+                                <a
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="ml-1 text-brand-400 underline"
+                                >
+                                  Ouvrir
+                                </a>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ),
             },
           ]}
           initialTab="preview"
         />
       </div>
 
+      {media?.kind === 'video' && (
+        <VideoTimeline getVideoElement={() => canvasRef.current?.getVideoElement() ?? null} />
+      )}
+
       {toast && (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
+        <div className="pointer-events-none fixed bottom-16 left-1/2 z-50 -translate-x-1/2">
           <div className="pointer-events-auto rounded-lg border border-white/10 bg-neutral-900/95 px-4 py-2 text-sm shadow-xl">
             {toast}
           </div>

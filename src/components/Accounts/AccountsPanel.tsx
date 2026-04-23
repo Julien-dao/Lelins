@@ -6,11 +6,25 @@ import type { SocialNetwork } from '../../types';
 
 const ADDABLE: SocialNetwork[] = [
   'instagram-feed',
+  'instagram-reel',
   'tiktok',
   'youtube-shorts',
   'x',
   'linkedin',
   'facebook',
+];
+
+const NEEDS_EXTERNAL_ID: SocialNetwork[] = [
+  'instagram-feed',
+  'instagram-reel',
+  'instagram-story',
+  'facebook',
+];
+
+const NEEDS_MEDIA_HOST: SocialNetwork[] = [
+  'instagram-feed',
+  'instagram-reel',
+  'instagram-story',
 ];
 
 export function AccountsPanel() {
@@ -20,18 +34,31 @@ export function AccountsPanel() {
   const removeAccount = useEditor((s) => s.removeAccount);
   const toggleAccount = useEditor((s) => s.toggleAccount);
 
-  const [network, setNetwork] = useState<SocialNetwork>('instagram-feed');
+  const [network, setNetwork] = useState<SocialNetwork>('youtube-shorts');
   const [handle, setHandle] = useState('');
   const [token, setToken] = useState('');
+  const [externalId, setExternalId] = useState('');
+  const [mediaHost, setMediaHost] = useState('');
   const [showToken, setShowToken] = useState(false);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!handle.trim() || !token.trim()) return;
-    addAccount({ network, handle: handle.trim().replace(/^@/, ''), token: token.trim() });
+    addAccount({
+      network,
+      handle: handle.trim().replace(/^@/, ''),
+      token: token.trim(),
+      externalId: externalId.trim() || undefined,
+      mediaHost: mediaHost.trim() || undefined,
+    });
     setHandle('');
     setToken('');
+    setExternalId('');
+    setMediaHost('');
   };
+
+  const needsExtId = NEEDS_EXTERNAL_ID.includes(network);
+  const needsHost = NEEDS_MEDIA_HOST.includes(network);
 
   return (
     <div className="space-y-4">
@@ -89,6 +116,34 @@ export function AccountsPanel() {
             </button>
           </div>
         </div>
+        {needsExtId && (
+          <div>
+            <label className="label">
+              {network === 'facebook' ? 'Page ID' : 'IG Business Account ID'}
+            </label>
+            <input
+              className="input font-mono text-xs"
+              placeholder="1234567890"
+              value={externalId}
+              onChange={(e) => setExternalId(e.target.value)}
+            />
+          </div>
+        )}
+        {needsHost && (
+          <div>
+            <label className="label">URL publique du média (Instagram)</label>
+            <input
+              className="input text-xs"
+              placeholder="https://votre-cdn.example/media.mp4"
+              value={mediaHost}
+              onChange={(e) => setMediaHost(e.target.value)}
+            />
+            <p className="mt-1 text-[10px] text-neutral-500">
+              IG Graph API exige que le fichier soit servi depuis une URL publique. Uploadez-le
+              vous-même (S3, R2, serveur local exposé, etc.) avant publication.
+            </p>
+          </div>
+        )}
         <button type="submit" className="btn-primary w-full" disabled={!handle || !token}>
           Ajouter le compte
         </button>
@@ -126,6 +181,7 @@ export function AccountsPanel() {
                 </div>
                 <div className="truncate text-[10px] text-neutral-500">
                   Token : •••{a.token.slice(-4)}
+                  {a.externalId && ` · id ${a.externalId}`}
                 </div>
               </div>
               <button

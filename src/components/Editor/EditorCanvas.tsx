@@ -9,6 +9,7 @@ import { TextLayerNode } from './TextLayerNode';
 export interface EditorCanvasHandle {
   toDataURL: (mimeType?: string, quality?: number) => string | null;
   toBlob: (mimeType?: string, quality?: number) => Promise<Blob | null>;
+  getVideoElement: () => HTMLVideoElement | null;
 }
 
 interface Props {
@@ -20,20 +21,86 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
   { containerWidth, containerHeight },
   ref,
 ) {
-  const image = useEditor((s) => s.image);
+  const media = useEditor((s) => s.media);
   const format = useEditor((s) => s.format);
   const layers = useEditor((s) => s.layers);
   const filter = useEditor((s) => s.filter);
   const selectedLayerId = useEditor((s) => s.selectedLayerId);
   const selectLayer = useEditor((s) => s.selectLayer);
+  const videoState = useEditor((s) => s.video);
+  const setVideoTime = useEditor((s) => s.setVideoTime);
+  const setVideoPlaying = useEditor((s) => s.setVideoPlaying);
 
   const spec = getFormat(format);
   const stageRef = useRef<Konva.Stage>(null);
   const bgImageRef = useRef<Konva.Image>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const [loadedImage] = useImage(image?.src ?? '', 'anonymous');
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+  const rafRef = useRef<number | null>(null);
 
-  // Fit the stage into the container while preserving the canvas aspect.
+  const imageSrc = media?.kind === 'image' ? media.src : '';
+  const [loadedImage] = useImage(imageSrc, 'anonymous');
+
+  // Instantiate / dispose the background <video> element for video sources.
+  useEffect(() => {
+    if (media?.kind !== 'video') {
+      videoElRef.current?.pause();
+      videoElRef.current = null;
+      return;
+    }
+    const v = document.createElement('video');
+    v.src = media.src;
+    v.crossOrigin = 'anonymous';
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.addEventListener('loadeddata', () => {
+      v.currentTime = 0;
+      bgImageRef.current?.getLayer()?.batchDraw();
+    });
+    v.addEventListener('timeupdate', () => {
+      setVideoTime(v.currentTime);
+    });
+    v.addEventListener('play', () => setVideoPlaying(true));
+    v.addEventListener('pause', () => setVideoPlaying(false));
+    videoElRef.current = v;
+    return () => {
+      v.pause();
+      v.src = '';
+    };
+  }, [media, setVideoTime, setVideoPlaying]);
+
+  // While the video plays, redraw the Konva layer each animation frame.
+  useEffect(() => {
+    const v = videoElRef.current;
+    if (!v) return;
+    const tick = () => {
+      bgImageRef.current?.getLayer()?.batchDraw();
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    if (videoState.playing) {
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [videoState.playing]);
+
+  // Sync the background image source (image OR video element) to Konva.
+  useEffect(() => {
+    const node = bgImageRef.current;
+    if (!node) return;
+    const v = videoElRef.current;
+    if (media?.kind === 'video' && v) {
+      node.image(v);
+      node.getLayer()?.batchDraw();
+    } else if (loadedImage) {
+      node.image(loadedImage);
+      node.getLayer()?.batchDraw();
+    }
+  }, [loadedImage, media]);
+
+  // Fit canvas into the container.
   const scale = useMemo(() => {
     const padding = 32;
     const availW = Math.max(100, containerWidth - padding);
@@ -41,11 +108,22 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
     return Math.min(availW / spec.width, availH / spec.height);
   }, [containerWidth, containerHeight, spec.width, spec.height]);
 
-  // Attach the Konva filter pipeline to the background image node whenever it changes.
+  // Apply Konva filters to the background node.
   useEffect(() => {
     const node = bgImageRef.current;
-    if (!node || !loadedImage) return;
-    node.cache();
+    if (!node || !node.image()) return;
+    // For video, re-cache on each frame is too expensive.
+    // We only cache for images; videos apply filters via CSS on export.
+    if (media?.kind === 'image') {
+      node.cache();
+    } else {
+      // Ensure no cache so the live video updates properly.
+      try {
+        node.clearCache();
+      } catch {
+        /* ignore */
+      }
+    }
     node.filters([
       Konva.Filters.Brighten,
       Konva.Filters.Contrast,
@@ -61,7 +139,7 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
     node.hue(filter.hue);
     node.blurRadius(filter.blur);
     node.getLayer()?.batchDraw();
-  }, [loadedImage, filter]);
+  }, [loadedImage, filter, media]);
 
   // Keep Transformer attached to the selected layer node.
   useEffect(() => {
@@ -86,16 +164,14 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
     toDataURL: (mimeType = 'image/png', quality = 0.95) => {
       const stage = stageRef.current;
       if (!stage) return null;
-      // Temporarily clear selection so the transformer doesn't bleed into export.
       const t = transformerRef.current;
       t?.nodes([]);
       stage.batchDraw();
       const url = stage.toDataURL({
         mimeType,
         quality,
-        pixelRatio: 1 / scale, // export at native format resolution
+        pixelRatio: 1 / scale,
       });
-      // Restore selection after export.
       if (selectedLayerId) {
         const selected = stage.findOne(`#${selectedLayerId}`);
         if (selected && t) t.nodes([selected]);
@@ -123,6 +199,7 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
       stage.batchDraw();
       return blob;
     },
+    getVideoElement: () => videoElRef.current,
   }));
 
   const stageW = spec.width * scale;
@@ -151,17 +228,15 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
         >
           <Layer>
             <Rect x={0} y={0} width={spec.width} height={spec.height} fill="#111" />
-            {loadedImage && (
-              <KImage
-                ref={bgImageRef}
-                image={loadedImage}
-                x={0}
-                y={0}
-                width={spec.width}
-                height={spec.height}
-                listening={false}
-              />
-            )}
+            <KImage
+              ref={bgImageRef}
+              image={undefined}
+              x={0}
+              y={0}
+              width={spec.width}
+              height={spec.height}
+              listening={false}
+            />
           </Layer>
           <Layer>
             {layers.map((layer) => (
@@ -182,11 +257,11 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
             />
           </Layer>
         </Stage>
-        {!image && (
+        {!media && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm text-neutral-400">
             <div>
               <p className="text-lg font-semibold text-neutral-200">Commencez ici</p>
-              <p className="mt-1">Importez une image pour démarrer.</p>
+              <p className="mt-1">Importez une image ou une vidéo pour démarrer.</p>
             </div>
           </div>
         )}
