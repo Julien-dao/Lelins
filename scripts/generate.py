@@ -121,6 +121,16 @@ def parse_args() -> argparse.Namespace:
                    help="Seed pour reproduire un visuel (défaut : seed du Character "
                         "si fourni, sinon aléatoire)")
 
+    # Verrouillage du visage (IP-Adapter face).
+    p.add_argument("--face-reference", type=Path, default=None,
+                   help="Image de référence pour verrouiller le visage via IP-Adapter. "
+                        "Si --character est fourni et qu'il a un portrait_path, "
+                        "celui-ci est utilisé automatiquement.")
+    p.add_argument("--face-scale", type=float, default=0.7,
+                   help="Force du verrouillage facial (0.5-1.0, défaut 0.7)")
+    p.add_argument("--no-face-lock", action="store_true",
+                   help="Désactive l'IP-Adapter face même si un portrait est dispo")
+
     p.add_argument("--model-id", type=str, default=DEFAULT_MODEL_ID,
                    help=f"ID HuggingFace du modèle (défaut : {DEFAULT_MODEL_ID})")
     p.add_argument("--output", "-o", type=Path, default=Path("outputs/out.png"),
@@ -193,9 +203,33 @@ def main() -> int:
     pipe = build_pipeline(args.model_id, device, dtype)
     print(f"Modèle prêt en {time.time() - t0:.1f}s.")
 
+    # Détermination de la référence visage pour l'IP-Adapter.
+    face_ref_path: Path | None = None
+    if not args.no_face_lock:
+        if args.face_reference is not None:
+            face_ref_path = args.face_reference
+        elif character is not None and character.portrait_path:
+            candidate = Path(character.portrait_path)
+            if not candidate.is_absolute():
+                # On résout par rapport au CWD, c'est ce que generate_character.py écrit.
+                candidate = Path.cwd() / candidate
+            if candidate.exists():
+                face_ref_path = candidate
+
+    face_ref_image = None
+    if face_ref_path is not None:
+        if not face_ref_path.exists():
+            print(f"ATTENTION : référence visage introuvable : {face_ref_path}", file=sys.stderr)
+        else:
+            from ip_adapter_helpers import load_face_adapter, open_reference_image
+            print(f"Chargement IP-Adapter face (scale={args.face_scale})...")
+            load_face_adapter(pipe, scale=args.face_scale)
+            face_ref_image = open_reference_image(face_ref_path)
+            print(f"Référence visage : {face_ref_path}")
+
     print("Génération en cours...")
     t0 = time.time()
-    result = pipe(
+    pipe_kwargs = dict(
         prompt=positive,
         negative_prompt=negative,
         width=args.width,
@@ -204,6 +238,10 @@ def main() -> int:
         guidance_scale=args.cfg,
         generator=generator,
     )
+    if face_ref_image is not None:
+        pipe_kwargs["ip_adapter_image"] = face_ref_image
+
+    result = pipe(**pipe_kwargs)
     image = result.images[0]
     print(f"Image générée en {time.time() - t0:.1f}s.")
 

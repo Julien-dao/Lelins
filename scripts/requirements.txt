@@ -5,11 +5,17 @@
 # - macOS Apple Silicon : la version par défaut inclut MPS, rien de spécial à faire.
 # - Windows NVIDIA : utiliser l'index CUDA approprié, voir docs/INSTALL.md.
 # - Linux NVIDIA : idem, index CUDA.
+#
+# Notes téléchargements automatiques (au premier run) :
+# - SDXL base                    : ~7 Go  (cache HuggingFace)
+# - SDXL inpainting (tryon.py)   : ~7 Go  (cache HuggingFace)
+# - IP-Adapter face (face lock)  : ~2 Go  (h94/IP-Adapter + image encoder)
+# - IP-Adapter général (tryon)   : ~600 Mo (réutilise l'image encoder)
 
 torch>=2.2.0
 torchvision>=0.17.0
 
-diffusers>=0.27.0
+diffusers>=0.29.0
 transformers>=4.40.0
 accelerate>=0.29.0
 safetensors>=0.4.0

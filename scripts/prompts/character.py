@@ -308,6 +308,7 @@ class Character:
     # Identité
     name: str
     seed: Optional[int] = None  # rempli après la première génération réussie
+    portrait_path: Optional[str] = None  # rempli par generate_character.py — utilisé comme référence IP-Adapter
     age: int = 28
 
     # 40 paramètres ↓

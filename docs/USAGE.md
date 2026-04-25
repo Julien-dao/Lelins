@@ -1,12 +1,23 @@
 # Utilisation du générateur Lelins
 
-Trois CLI principaux, **totalement interopérables** (même modèle SDXL) :
+Cinq CLI principaux, **totalement interopérables** :
 
-| Script                       | Rôle                                                        |
-|------------------------------|-------------------------------------------------------------|
-| `generate_character.py`      | Crée le **portrait** d'un mannequin (Character JSON).       |
-| `generate.py`                | Génère **un visuel produit** (mannequin + vêtement + décor). |
-| `batch_generate.py`          | Génère **tout un catalogue** depuis un JSON descriptif.     |
+| Script                       | Rôle                                                          |
+|------------------------------|---------------------------------------------------------------|
+| `generate_character.py`      | Crée le **portrait** d'un mannequin (Character JSON).         |
+| `generate.py`                | Génère **un visuel produit** (mannequin + vêtement + décor).  |
+| `batch_generate.py`          | Génère **tout un catalogue** depuis un JSON descriptif.       |
+| `tryon.py`                   | **Essayage virtuel** : applique un vêtement réel sur un mannequin. |
+| `make_mask.py`               | Helper pour créer le masque utilisé par `tryon.py`.           |
+
+Trois grandes phases du pipeline :
+
+1. **Phase A — Mannequin** : définir un Character paramétré (40 attributs)
+   et générer son portrait.
+2. **Phase B — Verrouillage facial** : grâce à IP-Adapter, le visage du
+   mannequin est conservé d'un visuel à l'autre du catalogue.
+3. **Phase C — Essayage virtuel** : uploader la photo réelle d'un produit
+   et la voir portée par le mannequin (voir [`TRYON.md`](TRYON.md)).
 
 L'interface graphique ComfyUI est documentée à part : [`comfyui/SETUP.md`](../comfyui/SETUP.md).
 L'installation est couverte dans [`INSTALL.md`](INSTALL.md).
@@ -81,7 +92,35 @@ python scripts/batch_generate.py \
 ```
 
 Le modèle ne se charge qu'une fois pour tout le lot — bien plus rapide qu'une
-boucle de `generate.py`.
+boucle de `generate.py`. Si les Characters référencés ont un `portrait_path`,
+**l'IP-Adapter face est chargé automatiquement** et le visage du mannequin
+est verrouillé pour tout le catalogue.
+
+### Étape 5. Essayage virtuel avec un vrai produit
+
+Pour faire porter une photo packshot réelle (sous-vêtement, t-shirt) au
+mannequin, voir le guide dédié : [`TRYON.md`](TRYON.md).
+
+Workflow rapide :
+
+```bash
+# Image de base du mannequin (le visage sera conservé via IP-Adapter)
+python scripts/generate.py -c characters/lelins-main.json \
+    --garment "plain grey boxer briefs" --background studio_white \
+    -o outputs/main-base.png
+
+# Masque automatique de la zone hanches/sous-vêtement
+python scripts/make_mask.py --person outputs/main-base.png \
+    --auto-hip -o masks/boxer-zone.png
+
+# Try-on avec la photo réelle de ton produit
+python scripts/tryon.py \
+    --person outputs/main-base.png \
+    --garment photos/boxer-noir.jpg \
+    --mask masks/boxer-zone.png \
+    --prompt "black cotton boxer briefs, branded elastic waistband" \
+    -o outputs/main-portant-boxer-noir.png
+```
 
 ---
 
@@ -204,5 +243,23 @@ Indicatif, premier run hors téléchargement, en 1024×1024 / 30 steps :
   différente.
 - **Cohérence du mannequin** entre visuels : passer par un Character JSON
   avec sa seed enregistrée. Pour une identité **strictement** verrouillée,
-  prochaine itération : intégration de IP-Adapter (visage figé sur image de
-  référence).
+  l'IP-Adapter face est activé automatiquement dès qu'un `portrait_path`
+  existe dans le profil — le visage du portrait sert de référence forcée
+  pour toutes les générations suivantes.
+
+## Verrouillage du visage (IP-Adapter)
+
+L'IP-Adapter face est **automatique** dès qu'un Character a un `portrait_path`
+valide. Pour ajuster :
+
+- `--face-scale 0.7` (défaut, sur `generate.py` et `batch_generate.py`) :
+  équilibre identité / variété de pose.
+- `--face-scale 0.9` : verrouillage strict, le visage colle quasi-parfaitement.
+- `--face-scale 0.5` : laisse plus de place à l'aléatoire (pour générer
+  *plusieurs visages très proches* mais légèrement différents).
+- `--no-face-lock` : désactive entièrement.
+- `--face-reference <png>` : force une autre image de référence que celle du
+  Character.
+
+Au premier usage, ~2 Go de poids IP-Adapter + image encoder sont téléchargés
+depuis HuggingFace et mis en cache.

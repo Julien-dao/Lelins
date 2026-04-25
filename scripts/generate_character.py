@@ -131,11 +131,15 @@ def main() -> int:
     image.save(args.output)
     print(f"Image sauvegardée : {args.output}")
 
-    # On enregistre la seed dans le profil pour la cohérence future.
-    if character.seed != seed:
+    # On enregistre la seed et le chemin du portrait dans le profil pour la
+    # cohérence future (IP-Adapter face s'en sert comme référence d'identité).
+    portrait_path_str = str(args.output)
+    needs_save = (character.seed != seed) or (character.portrait_path != portrait_path_str)
+    if needs_save:
         character.seed = seed
+        character.portrait_path = portrait_path_str
         character.to_json(args.profile)
-        print(f"Seed {seed} enregistrée dans {args.profile}")
+        print(f"Profil mis à jour : seed={seed}, portrait_path={portrait_path_str}")
 
     return 0
 

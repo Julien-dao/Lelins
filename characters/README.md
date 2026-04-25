@@ -84,13 +84,25 @@ acceptées de chaque paramètre (exemple : `hair_style` accepte `classic_short`,
 Les vocabulaires fermés sont validés en lecture mais le code reste tolérant si
 tu fournis une valeur libre — elle sera passée telle quelle au prompt SDXL.
 
-## Limite actuelle (importante)
+## Verrouillage du visage (IP-Adapter)
 
-La cohérence d'identité du mannequin entre plusieurs visuels repose
-**uniquement sur la seed et la description partagées**. C'est efficace pour
-~80 % des cas mais le visage peut légèrement varier d'une scène à l'autre.
+Une fois le portrait généré (étape 2), le `portrait_path` est enregistré dans
+le profil JSON. Toutes les générations suivantes (`generate.py`,
+`batch_generate.py`) qui réfèrent ce Character **utilisent automatiquement
+l'IP-Adapter face** : le visage du portrait sert de référence forcée et reste
+quasi-identique d'un visuel à l'autre.
 
-Pour une **identité strictement verrouillée** (même visage exact partout),
-prochaine itération : intégration de **IP-Adapter** ou **InstantID**, qui
-prend une image de référence du mannequin et l'impose dans toutes les
-générations futures.
+Pour ajuster la force du verrouillage :
+
+```bash
+# Verrouillage strict (recommandé pour catalogue uniformisé)
+python scripts/generate.py -c characters/lelins-main.json \
+    --garment "..." --face-scale 0.9 -o outputs/x.png
+
+# Désactiver complètement
+python scripts/generate.py -c characters/lelins-main.json \
+    --garment "..." --no-face-lock -o outputs/x.png
+```
+
+Au premier usage, l'IP-Adapter télécharge ~2 Go (poids + image encoder ViT-H/14)
+puis cache pour les runs suivants.

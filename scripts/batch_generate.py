@@ -66,12 +66,12 @@ def _load_character(path_str: str, base: Path) -> Character:
 def resolve_prompts_and_seed(
     item: dict,
     input_dir: Path,
-) -> tuple[str, str, int | None]:
-    """Retourne (positif, négatif, seed_par_défaut_du_character_ou_None)."""
+) -> tuple[str, str, int | None, Character | None]:
+    """Retourne (positif, négatif, seed_par_défaut_du_character_ou_None, character_ou_None)."""
     if "prompt" in item:
         positive = item["prompt"]
         negative = item.get("negative") or simple_prompt(garment="placeholder")[1]
-        return positive, negative, None
+        return positive, negative, None, None
 
     if "garment" not in item:
         raise ValueError(
@@ -92,7 +92,7 @@ def resolve_prompts_and_seed(
         pose=item.get("pose", "standing front view, arms relaxed at sides"),
     ).build()
     negative = item.get("negative") or negative_default
-    return positive, negative, char_seed
+    return positive, negative, char_seed, character
 
 
 def parse_args() -> argparse.Namespace:
@@ -106,6 +106,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--height", type=int, default=1024)
     p.add_argument("--steps", type=int, default=30)
     p.add_argument("--cfg", type=float, default=7.0)
+    p.add_argument("--face-scale", type=float, default=0.7,
+                   help="Force du verrouillage facial IP-Adapter (0.5-1.0, défaut 0.7)")
+    p.add_argument("--no-face-lock", action="store_true",
+                   help="Désactive l'IP-Adapter face même si des portraits sont dispos")
     return p.parse_args()
 
 
@@ -136,19 +140,43 @@ def main() -> int:
     pipe = build_pipeline(args.model_id, device, dtype)
     print(f"Modèle prêt en {time.time() - t0:.1f}s.")
 
-    total_images = sum(max(1, int(item.get("variations", 1))) for item in items)
-    print(f"\n{len(items)} item(s), {total_images} image(s) à générer au total.\n")
+    # Pré-résolution des items pour décider du chargement IP-Adapter face.
+    resolved: list[tuple[int, dict, str, str, int | None, Character | None]] = []
+    for idx, item in enumerate(items, start=1):
+        try:
+            positive, negative, character_seed, character = resolve_prompts_and_seed(item, args.input)
+            resolved.append((idx, item, positive, negative, character_seed, character))
+        except (ValueError, FileNotFoundError) as e:
+            print(f"[{idx}/{len(items)}] SKIP {item.get('name', '?')} : {e}")
+
+    # Si au moins un Character a un portrait, on charge l'IP-Adapter face.
+    use_face_lock = (not args.no_face_lock) and any(
+        c is not None and c.portrait_path and Path(c.portrait_path).exists()
+        for _, _, _, _, _, c in resolved
+    )
+    face_image_cache: dict[str, "Image.Image"] = {}
+    if use_face_lock:
+        from ip_adapter_helpers import load_face_adapter, open_reference_image
+        from PIL import Image  # noqa: F401  (pour le type hint dans le cache)
+        print(f"Chargement IP-Adapter face (scale={args.face_scale})...")
+        load_face_adapter(pipe, scale=args.face_scale)
+
+    total_images = sum(max(1, int(item.get("variations", 1))) for _, item, *_ in resolved)
+    print(f"\n{len(resolved)} item(s), {total_images} image(s) à générer au total.\n")
 
     counter = 0
-    for idx, item in enumerate(items, start=1):
+    for idx, item, positive, negative, character_seed, character in resolved:
         name = item.get("name", f"item_{idx:03d}")
         variations = max(1, int(item.get("variations", 1)))
 
-        try:
-            positive, negative, character_seed = resolve_prompts_and_seed(item, args.input)
-        except (ValueError, FileNotFoundError) as e:
-            print(f"[{idx}/{len(items)}] SKIP {name} : {e}")
-            continue
+        # Image de référence visage pour cet item.
+        face_ref_image = None
+        if use_face_lock and character is not None and character.portrait_path:
+            p = Path(character.portrait_path)
+            if p.exists():
+                if str(p) not in face_image_cache:
+                    face_image_cache[str(p)] = open_reference_image(p)
+                face_ref_image = face_image_cache[str(p)]
 
         # Priorité de la seed : item["seed"] > seed du Character > aléatoire.
         base_seed = item.get("seed") if item.get("seed") is not None else character_seed
@@ -163,7 +191,7 @@ def main() -> int:
 
             print(f"[{counter}/{total_images}] {output_path.name} (seed={seed})")
             t = time.time()
-            result = pipe(
+            pipe_kwargs = dict(
                 prompt=positive,
                 negative_prompt=negative,
                 width=args.width,
@@ -172,6 +200,9 @@ def main() -> int:
                 guidance_scale=args.cfg,
                 generator=generator,
             )
+            if face_ref_image is not None:
+                pipe_kwargs["ip_adapter_image"] = face_ref_image
+            result = pipe(**pipe_kwargs)
             result.images[0].save(output_path)
             print(f"           {time.time() - t:.1f}s -> {output_path}")
 

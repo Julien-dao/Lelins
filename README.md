@@ -23,21 +23,40 @@ les visuels du catalogue.
 
 Plusieurs mannequins peuvent coexister (ligne principale, ligne mature, etc.).
 
+### Trois phases du pipeline
+
+1. **Mannequin paramétré** — Character JSON à 40 attributs (peau, cheveux,
+   yeux, visage, corps, tatouages…) → portrait studio reproductible.
+2. **Verrouillage facial (IP-Adapter)** — le visage du mannequin reste
+   identique sur toutes les images du catalogue.
+3. **Essayage virtuel** — uploader la photo réelle d'un produit (boxer, slip,
+   t-shirt…), le système l'applique sur le mannequin via SDXL Inpainting +
+   IP-Adapter. Voir [`docs/TRYON.md`](docs/TRYON.md).
+
 ### Démarrage rapide
 
 1. Lire [`docs/INSTALL.md`](docs/INSTALL.md) et installer les dépendances.
 2. Lire [`docs/USAGE.md`](docs/USAGE.md) pour les commandes principales.
-3. Pour l'interface graphique, lire [`comfyui/SETUP.md`](comfyui/SETUP.md).
-4. Pour les profils mannequin, lire [`characters/README.md`](characters/README.md).
+3. Pour l'essayage virtuel, lire [`docs/TRYON.md`](docs/TRYON.md).
+4. Pour l'interface graphique, lire [`comfyui/SETUP.md`](comfyui/SETUP.md).
+5. Pour les profils mannequin, lire [`characters/README.md`](characters/README.md).
 
 ### Structure
 
 ```
 Lelins/
-├── scripts/          Scripts Python (generate, batch, generate_character)
-│   └── prompts/      Character (40 params) + templates produit
-├── characters/       Profils mannequin JSON + portraits de référence
-├── comfyui/          Setup ComfyUI + workflow prêt à l'emploi
-├── docs/             Installation + utilisation
-└── outputs/          Images générées (gitignored)
+├── scripts/
+│   ├── generate.py            Visuel produit (mannequin + vêtement + décor)
+│   ├── generate_character.py  Portrait d'un Character
+│   ├── batch_generate.py      Catalogue complet en un lot
+│   ├── tryon.py               Essayage virtuel (vêtement réel sur mannequin)
+│   ├── make_mask.py           Création de masques pour tryon.py
+│   ├── ip_adapter_helpers.py  Chargement IP-Adapter face/general
+│   └── prompts/
+│       ├── character.py       Dataclass Character (40 paramètres)
+│       └── templates.py       Composition Character + garment + scène
+├── characters/                Profils mannequin + portraits de référence
+├── comfyui/                   Setup ComfyUI + workflow prêt à l'emploi
+├── docs/                      INSTALL.md, USAGE.md, TRYON.md
+└── outputs/                   Images générées (gitignored)
 ```
