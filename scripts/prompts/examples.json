@@ -1,47 +1,42 @@
 [
   {
-    "name": "boxer-noir-coton-studio",
+    "name": "main-boxer-noir-coton-studio",
+    "character": "characters/lelins-main.json",
     "garment": "black cotton boxer briefs, elastic waistband with subtle Lelins logo",
-    "model_style": "athletic",
     "background": "studio_white",
     "pose": "standing front view, arms relaxed at sides, confident posture",
-    "seed": 1001,
     "variations": 2
   },
   {
-    "name": "slip-blanc-coton-studio",
+    "name": "main-slip-blanc-coton-studio",
+    "character": "characters/lelins-main.json",
     "garment": "classic white cotton briefs, clean cut, minimalist",
-    "model_style": "slim",
     "background": "studio_grey",
     "pose": "three-quarter view, hands on hips",
-    "seed": 1002,
     "variations": 2
   },
   {
-    "name": "trunk-marine-outdoor",
+    "name": "main-trunk-marine-outdoor",
+    "character": "characters/lelins-main.json",
     "garment": "navy blue trunks, soft microfiber fabric",
-    "model_style": "athletic",
     "background": "outdoor_beach",
     "pose": "standing on the beach, looking at horizon, natural light",
-    "seed": 1003,
     "variations": 1
   },
   {
-    "name": "boxer-gris-loft",
-    "garment": "heather grey boxer briefs, soft cotton blend",
-    "model_style": "mature",
-    "background": "loft",
-    "pose": "sitting on edge of bed, relaxed morning mood",
-    "seed": 1004,
-    "variations": 1
-  },
-  {
-    "name": "tshirt-blanc-studio",
+    "name": "main-tshirt-blanc-studio",
+    "character": "characters/lelins-main.json",
     "garment": "fitted white crew neck t-shirt, premium cotton, and dark denim jeans",
-    "model_style": "casual",
     "background": "studio_beige",
     "pose": "three-quarter view, hands in pockets, smiling",
-    "seed": 1005,
     "variations": 2
+  },
+  {
+    "name": "mature-boxer-gris-loft",
+    "character": "characters/lelins-mature.json",
+    "garment": "heather grey boxer briefs, soft cotton blend",
+    "background": "loft",
+    "pose": "sitting on edge of bed, relaxed morning mood",
+    "variations": 1
   }
 ]

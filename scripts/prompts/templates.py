@@ -1,13 +1,21 @@
-"""Templates de prompts pour le catalogue Lelins.
+"""Composition de prompts SDXL pour le catalogue Lelins.
 
-Structure un prompt SDXL à partir de paramètres produit simples (type, couleur,
-matière, ambiance) pour maximiser la qualité et la cohérence visuelle sur toute
-une série de visuels.
+Trois éléments combinables :
+
+- un ``Character`` (description fine du mannequin, voir ``character.py``) ou,
+  à défaut, un ``MODEL_STYLES`` simplifié (legacy, pour rétrocompatibilité) ;
+- un ``garment`` (texte libre décrivant le produit porté) ;
+- un ``background`` (clé de ``BACKGROUNDS``).
+
+Le résultat est ``(prompt_positif, prompt_négatif)``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
+
+from .character import Character
 
 
 DEFAULT_NEGATIVE = (
@@ -17,8 +25,7 @@ DEFAULT_NEGATIVE = (
     "low quality, worst quality, blurry, jpeg artifacts, watermark, "
     "logo, text, signature, cartoon, anime, 3d render, plastic skin"
 )
-"""Négatif partagé. On exclut explicitement la nudité : l'objectif est du visuel
-catalogue propre, clothed product photography."""
+"""Négatif partagé. Visuel catalogue propre, photographie habillée."""
 
 
 QUALITY_SUFFIX = (
@@ -38,6 +45,9 @@ BACKGROUNDS = {
 }
 
 
+# Profils mannequin simplifiés — utilisés uniquement si aucun ``Character``
+# n'est fourni. Pour un mannequin récurrent et richement paramétré, utiliser
+# ``Character`` (40 paramètres) plutôt que ces presets.
 MODEL_STYLES = {
     "athletic": "athletic fit adult male model, toned physique, short hair, confident pose",
     "slim": "slim adult male model, natural look, friendly expression",
@@ -48,13 +58,20 @@ MODEL_STYLES = {
 
 @dataclass
 class ProductPrompt:
-    """Paramètres d'un visuel produit."""
+    """Paramètres d'un visuel produit.
+
+    Si ``character`` est fourni, c'est lui qui décrit le mannequin (40 params).
+    Sinon on retombe sur ``model_style`` (preset simple).
+    """
 
     garment: str
     """Exemple: 'black cotton boxer briefs', 'navy blue trunks', 'white crew t-shirt'."""
 
+    character: Optional[Character] = None
+    """Description fine du mannequin. Prioritaire sur ``model_style`` si défini."""
+
     model_style: str = "athletic"
-    """Clé de ``MODEL_STYLES``."""
+    """Preset legacy, utilisé si ``character`` n'est pas fourni."""
 
     background: str = "studio_white"
     """Clé de ``BACKGROUNDS``."""
@@ -70,11 +87,15 @@ class ProductPrompt:
 
     def build(self) -> tuple[str, str]:
         """Retourne (positive_prompt, negative_prompt)."""
-        model_desc = MODEL_STYLES.get(self.model_style, self.model_style)
+        if self.character is not None:
+            person_desc = self.character.build_prompt()
+        else:
+            person_desc = MODEL_STYLES.get(self.model_style, self.model_style)
+
         bg_desc = BACKGROUNDS.get(self.background, self.background)
 
         parts = [
-            model_desc,
+            person_desc,
             f"wearing {self.garment}",
             self.pose,
             bg_desc,

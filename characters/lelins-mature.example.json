@@ -1,0 +1,68 @@
+{
+  "name": "Lelins Mature Model",
+  "seed": null,
+
+  "age": 45,
+  "ethnicity": "european",
+  "body_type": "mature_fit",
+  "height": "tall",
+
+  "skin_tone": "fair",
+  "skin_texture": "weathered",
+  "skin_marks": [
+    "fine wrinkles at corners of eyes",
+    "subtle scar on left eyebrow"
+  ],
+  "body_hair": "hairy_chest",
+
+  "hair_color": "salt_pepper",
+  "hair_length": "short",
+  "hair_style": "side_part",
+  "hairline": "slight_recession",
+
+  "facial_hair_style": "short_beard",
+  "facial_hair_density": "thick",
+
+  "eye_color": "blue",
+  "eye_shape": "deep_set",
+  "eyebrow_style": "thick",
+
+  "nose_shape": "roman",
+  "nose_size": "medium",
+
+  "lip_shape": "medium",
+  "mouth_expression": "neutral",
+
+  "jaw_shape": "square",
+  "chin": "strong",
+  "cheekbones": "prominent",
+
+  "shoulders": "broad",
+  "chest": "defined",
+  "arms": "toned",
+  "hands": "large_strong",
+  "legs": "toned",
+
+  "tattoo_zones": [
+    "left forearm",
+    "right shoulder"
+  ],
+  "tattoo_aesthetic": "blackwork",
+
+  "piercings": [],
+
+  "glasses": "none",
+
+  "distinguishing_marks": [
+    "thin silver chain necklace"
+  ],
+
+  "expression": "confident",
+
+  "notes": "premium mature line, sophisticated aesthetic",
+  "style_keywords": [
+    "editorial fashion",
+    "GQ magazine style",
+    "natural skin retouch"
+  ]
+}

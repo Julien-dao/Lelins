@@ -1,3 +1,4 @@
+from .character import Character
 from .templates import (
     BACKGROUNDS,
     DEFAULT_NEGATIVE,
@@ -9,6 +10,7 @@ from .templates import (
 
 __all__ = [
     "BACKGROUNDS",
+    "Character",
     "DEFAULT_NEGATIVE",
     "MODEL_STYLES",
     "ProductPrompt",

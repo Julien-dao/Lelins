@@ -6,20 +6,24 @@ Le JSON d'entrée est une liste d'objets, chacun décrivant un visuel. Le modèl
 est chargé une seule fois, ce qui rend le lot largement plus rapide que des
 appels individuels à ``generate.py``.
 
-Format d'un item :
+Format d'un item (mode template) :
 
     {
-      "name": "boxer-noir-coton",            # nom de fichier de sortie
-      "garment": "black cotton boxer briefs", # champ principal du template
-      "model_style": "athletic",              # athletic|slim|mature|casual
-      "background": "studio_white",           # voir prompts/templates.py
+      "name": "boxer-noir-coton",
+      "garment": "black cotton boxer briefs",
+      "character": "characters/lelins-main.json",  # OPTION A : chemin vers un Character
+      "model_style": "athletic",                   # OPTION B : preset simple si pas de Character
+      "background": "studio_white",
       "pose": "standing front view, arms relaxed at sides",
-      "seed": 1234,                           # optionnel, reproductibilité
-      "variations": 3                         # optionnel, nb d'images (défaut 1)
+      "seed": 1234,                                # optionnel : prioritaire sur la seed du Character
+      "variations": 3
     }
 
-Alternative : fournir directement ``prompt`` / ``negative`` pour un contrôle
-total au lieu du template.
+Alternative complète : fournir ``prompt`` / ``negative`` au lieu du template.
+
+Si un ``character`` est défini et qu'aucune ``seed`` n'est précisée, on
+réutilise la seed enregistrée dans le profil — l'identité du mannequin est
+préservée à travers tout le catalogue.
 
 Usage :
 
@@ -40,29 +44,55 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from generate import DEFAULT_MODEL_ID, build_pipeline, detect_device  # noqa: E402
-from prompts import simple_prompt  # noqa: E402
+from prompts import Character, ProductPrompt, simple_prompt  # noqa: E402
 
 
-def resolve_prompts(item: dict) -> tuple[str, str]:
-    """Retourne (positif, négatif) pour un item, en mode libre ou template."""
+# Cache des Characters chargés depuis disque (évite de relire le JSON à chaque variation).
+_CHARACTER_CACHE: dict[str, Character] = {}
+
+
+def _load_character(path_str: str, base: Path) -> Character:
+    """Charge un Character depuis le chemin (relatif au CWD ou au fichier d'input)."""
+    candidates = [Path(path_str), base.parent / path_str, base / path_str]
+    for c in candidates:
+        if c.exists():
+            cache_key = str(c.resolve())
+            if cache_key not in _CHARACTER_CACHE:
+                _CHARACTER_CACHE[cache_key] = Character.from_json_file(c)
+            return _CHARACTER_CACHE[cache_key]
+    raise FileNotFoundError(f"Character introuvable : {path_str}")
+
+
+def resolve_prompts_and_seed(
+    item: dict,
+    input_dir: Path,
+) -> tuple[str, str, int | None]:
+    """Retourne (positif, négatif, seed_par_défaut_du_character_ou_None)."""
     if "prompt" in item:
         positive = item["prompt"]
         negative = item.get("negative") or simple_prompt(garment="placeholder")[1]
-        return positive, negative
+        return positive, negative, None
 
     if "garment" not in item:
         raise ValueError(
             f"Item invalide (ni 'prompt' ni 'garment') : {item.get('name', '?')}"
         )
 
-    positive, negative_default = simple_prompt(
+    character = None
+    char_seed = None
+    if "character" in item and item["character"]:
+        character = _load_character(item["character"], input_dir)
+        char_seed = character.seed
+
+    positive, negative_default = ProductPrompt(
         garment=item["garment"],
+        character=character,
         model_style=item.get("model_style", "athletic"),
         background=item.get("background", "studio_white"),
         pose=item.get("pose", "standing front view, arms relaxed at sides"),
-    )
+    ).build()
     negative = item.get("negative") or negative_default
-    return positive, negative
+    return positive, negative, char_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -115,12 +145,13 @@ def main() -> int:
         variations = max(1, int(item.get("variations", 1)))
 
         try:
-            positive, negative = resolve_prompts(item)
-        except ValueError as e:
+            positive, negative, character_seed = resolve_prompts_and_seed(item, args.input)
+        except (ValueError, FileNotFoundError) as e:
             print(f"[{idx}/{len(items)}] SKIP {name} : {e}")
             continue
 
-        base_seed = item.get("seed")
+        # Priorité de la seed : item["seed"] > seed du Character > aléatoire.
+        base_seed = item.get("seed") if item.get("seed") is not None else character_seed
         for v in range(variations):
             counter += 1
             seed = base_seed + v if isinstance(base_seed, int) else random.randint(0, 2**31 - 1)

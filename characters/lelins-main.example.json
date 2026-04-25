@@ -1,0 +1,62 @@
+{
+  "name": "Lelins Main Model",
+  "seed": null,
+
+  "age": 28,
+  "ethnicity": "mediterranean",
+  "body_type": "athletic",
+  "height": "average",
+
+  "skin_tone": "light_olive",
+  "skin_texture": "smooth",
+  "skin_marks": [
+    "small natural mole below right eye"
+  ],
+  "body_hair": "light_chest",
+
+  "hair_color": "dark_brown",
+  "hair_length": "short",
+  "hair_style": "textured_crop",
+  "hairline": "full",
+
+  "facial_hair_style": "stubble",
+  "facial_hair_density": "medium",
+
+  "eye_color": "brown",
+  "eye_shape": "almond",
+  "eyebrow_style": "medium",
+
+  "nose_shape": "straight",
+  "nose_size": "medium",
+
+  "lip_shape": "medium",
+  "mouth_expression": "slight_smile",
+
+  "jaw_shape": "square",
+  "chin": "strong",
+  "cheekbones": "high",
+
+  "shoulders": "broad",
+  "chest": "defined",
+  "arms": "toned",
+  "hands": "average",
+  "legs": "toned",
+
+  "tattoo_zones": [],
+  "tattoo_aesthetic": "fine_line",
+
+  "piercings": [],
+
+  "glasses": "none",
+
+  "distinguishing_marks": [],
+
+  "expression": "confident",
+
+  "notes": "natural model, approachable, brand identity for Lelins",
+  "style_keywords": [
+    "editorial fashion",
+    "natural skin retouch",
+    "magazine quality"
+  ]
+}

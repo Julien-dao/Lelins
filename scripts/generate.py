@@ -5,16 +5,27 @@ Exécution locale d'un modèle Stable Diffusion XL pour produire des visuels de
 catalogue. Détection automatique du matériel (MPS sur Mac, CUDA sur Windows
 NVIDIA, CPU en secours).
 
-Usage rapide :
+Trois modes d'usage :
 
-    python scripts/generate.py --prompt "male model wearing black boxer briefs" \
+1. Mode libre (prompt brut) :
+
+    python scripts/generate.py --prompt "male model wearing black boxer briefs" \\
         --output outputs/test.png
 
-Usage avec le template produit :
+2. Mode preset simple (modèle de mannequin générique) :
 
-    python scripts/generate.py --garment "navy blue trunks" \
-        --model-style athletic --background studio_grey \
+    python scripts/generate.py --garment "navy blue trunks" \\
+        --model-style athletic --background studio_grey \\
         --output outputs/navy.png
+
+3. Mode mannequin récurrent (Character JSON, 40 paramètres détaillés) :
+
+    python scripts/generate.py --character characters/lelins-main.json \\
+        --garment "black cotton boxer briefs" --background studio_white \\
+        --output outputs/main-boxer-noir.png
+
+Quand un Character est fourni, sa seed enregistrée est réutilisée par défaut
+pour préserver l'identité visuelle du mannequin entre les visuels.
 """
 
 from __future__ import annotations
@@ -28,7 +39,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from prompts import ProductPrompt, simple_prompt  # noqa: E402
+from prompts import Character, ProductPrompt, simple_prompt  # noqa: E402
 
 
 DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
@@ -77,25 +88,29 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--check", action="store_true",
                    help="Affiche juste le matériel détecté et quitte")
 
-    # Deux façons de fournir le prompt : libre ou structuré via template.
+    # Mode libre.
     p.add_argument("--prompt", type=str,
                    help="Prompt positif complet (mode libre)")
     p.add_argument("--negative", type=str, default=None,
                    help="Prompt négatif (défaut : négatif du template)")
 
+    # Mode template (preset simple OU character détaillé).
+    p.add_argument("--character", "-c", type=Path, default=None,
+                   help="Profil mannequin JSON (40 paramètres). Prioritaire sur --model-style.")
     p.add_argument("--garment", type=str,
-                   help="Type de vêtement, ex. 'black cotton boxer briefs' (mode template)")
+                   help="Type de vêtement, ex. 'black cotton boxer briefs'")
     p.add_argument("--model-style", type=str, default="athletic",
                    choices=["athletic", "slim", "mature", "casual"],
-                   help="Style du mannequin (mode template)")
+                   help="Preset simple (utilisé si --character n'est pas fourni)")
     p.add_argument("--background", type=str, default="studio_white",
                    choices=["studio_white", "studio_grey", "studio_beige",
                             "loft", "outdoor_beach", "urban"],
-                   help="Arrière-plan (mode template)")
+                   help="Arrière-plan")
     p.add_argument("--pose", type=str,
                    default="standing front view, arms relaxed at sides",
-                   help="Pose du mannequin (mode template)")
+                   help="Pose du mannequin")
 
+    # Paramètres de diffusion.
     p.add_argument("--width", type=int, default=1024)
     p.add_argument("--height", type=int, default=1024)
     p.add_argument("--steps", type=int, default=30,
@@ -103,7 +118,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--cfg", type=float, default=7.0,
                    help="Classifier-free guidance scale (5-9 typique)")
     p.add_argument("--seed", type=int, default=None,
-                   help="Seed pour reproduire un visuel (défaut : aléatoire)")
+                   help="Seed pour reproduire un visuel (défaut : seed du Character "
+                        "si fourni, sinon aléatoire)")
 
     p.add_argument("--model-id", type=str, default=DEFAULT_MODEL_ID,
                    help=f"ID HuggingFace du modèle (défaut : {DEFAULT_MODEL_ID})")
@@ -129,17 +145,27 @@ def main() -> int:
         print("OK — environnement prêt. Aucun modèle téléchargé.")
         return 0
 
-    # Résolution du prompt : mode libre OU mode template.
+    # Résolution du Character éventuel.
+    character: Character | None = None
+    if args.character is not None:
+        if not args.character.exists():
+            print(f"ERREUR : Character introuvable : {args.character}", file=sys.stderr)
+            return 2
+        character = Character.from_json_file(args.character)
+        print(f"Character chargé : {character.name}")
+
+    # Résolution du prompt.
     if args.prompt:
         positive = args.prompt
         negative = args.negative or simple_prompt(garment="placeholder")[1]
     elif args.garment:
-        positive, negative_default = simple_prompt(
+        positive, negative_default = ProductPrompt(
             garment=args.garment,
+            character=character,
             model_style=args.model_style,
             background=args.background,
             pose=args.pose,
-        )
+        ).build()
         negative = args.negative or negative_default
     else:
         print("ERREUR : fournir --prompt ou --garment.", file=sys.stderr)
@@ -151,11 +177,16 @@ def main() -> int:
     print(negative)
     print()
 
-    # Seed déterministe si demandée.
+    # Résolution de la seed : --seed > seed du Character > aléatoire.
+    seed = args.seed
+    if seed is None and character is not None and character.seed is not None:
+        seed = character.seed
+        print(f"Seed du Character réutilisée : {seed}")
+
     generator = None
-    if args.seed is not None:
+    if seed is not None:
         generator = torch.Generator(device=device if device != "mps" else "cpu")
-        generator = generator.manual_seed(args.seed)
+        generator = generator.manual_seed(seed)
 
     print(f"Chargement du modèle '{args.model_id}'...")
     t0 = time.time()
