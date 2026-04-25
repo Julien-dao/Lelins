@@ -34,11 +34,34 @@ réseaux que vous avez configurés.
   - **TikTok Content Posting API** — inbox upload (la publication finale se fait dans l'app TikTok)
   - **X** et **LinkedIn** — identifiés CORS-blocked avec message clair (proxy local requis)
 
+### Itération 3 — sous-titres auto + proxy local
+- **Sous-titres automatiques** par Whisper (transformers.js, modèles tiny/base/small) :
+  - extraction audio mono 16 kHz via FFmpeg.wasm
+  - transcription avec timestamps, multilingue (auto / fr / en / es / de / it / pt)
+  - éditeur de segments (texte modifiable, suppression, jump-to-time)
+  - rendu live des sous-titres dans le canvas pendant la lecture
+  - burn-in à l'export via fichier ASS et filter `subtitles=`
+  - style configurable : taille, position (haut/milieu/bas), couleurs, fond (aucun/bloc/pilule)
+  - Whisper en chargement dynamique : ne pèse que sur le bundle quand l'utilisateur clique « Générer »
+- **Proxy local** (`proxy/server.mjs`) pour débloquer X et LinkedIn :
+  - Node script de ~120 lignes, écoute sur `127.0.0.1:8088`
+  - relais transparent vers `api.twitter.com`, `upload.twitter.com`, `api.linkedin.com`
+  - CORS limité aux origines locales (`localhost:5173/4173`)
+  - aucune persistance, aucun log de token
+  - l'app détecte automatiquement le proxy via `/_health` et bascule X/LinkedIn dessus
+  - implémentations complètes : X (INIT/APPEND/FINALIZE + tweet) et LinkedIn (UGC posts API)
+
 ## Lancer en local
 
 ```bash
 npm install          # copie aussi FFmpeg.wasm (~32 Mo) dans public/ffmpeg/
 npm run dev          # http://localhost:5173
+```
+
+Pour publier sur X ou LinkedIn, lancez le proxy local en parallèle :
+
+```bash
+node proxy/server.mjs   # http://127.0.0.1:8088
 ```
 
 ## Build de production
@@ -73,15 +96,15 @@ L'app n'a aucun backend. Pour chaque réseau que vous voulez utiliser, vous deve
 | Facebook    | Page ID + Page Access Token                 | ✅ direct                             |
 | Instagram   | IG Business Account ID + URL publique média | ✅ direct (hébergement média requis)  |
 | TikTok      | App approuvée, scope `video.upload`         | ✅ inbox (publication finale in-app)  |
-| X (Twitter) | X API v2 tier payant                        | ❌ CORS — proxy local requis          |
-| LinkedIn    | Marketing API                               | ❌ CORS — proxy local requis          |
+| X (Twitter) | X API v2 tier payant + proxy local          | ✅ via proxy local                    |
+| LinkedIn    | Marketing API + URN auteur + proxy local    | ✅ via proxy local                    |
 
 ## Roadmap
 
-- Proxy local optionnel (Node/Deno script embarqué) pour débloquer X et LinkedIn.
-- File d'attente de publications programmées.
-- Preset additionnels (LUTs, overlays stickers).
-- Sous-titres auto (Whisper.wasm) pour les vidéos.
+- File d'attente de publications programmées (cron local).
+- Presets additionnels (LUTs, overlays stickers, watermark).
+- Aperçus video pour les réseaux verticaux (lecture inline).
+- Tests E2E (Playwright) sur le pipeline image + vidéo.
 
 ## Architecture
 
@@ -97,13 +120,19 @@ src/
 ├── store/editorStore.ts        Store Zustand unique (media image|vidéo, layers, filter, caption, accounts)
 ├── lib/
 │   ├── ffmpeg.ts               Singleton FFmpeg.wasm (lazy)
-│   ├── videoExport.ts          Pipeline de rendu vidéo (trim + filtres + overlay)
+│   ├── videoExport.ts          Pipeline de rendu vidéo (trim + filtres + overlay + sous-titres)
 │   ├── overlayRender.ts        Rend les calques texte en PNG transparent pour burn-in
-│   ├── publishers.ts           Implémentations YouTube, IG, FB, TikTok + CORS detection
+│   ├── audio.ts                Extraction audio 16 kHz pour Whisper
+│   ├── whisper.ts              Loader transformers.js (lazy import)
+│   ├── subtitles.ts            Génération ASS pour FFmpeg
+│   ├── publishers.ts           Implémentations YouTube, IG, FB, TikTok, X, LinkedIn + proxy detect
 │   ├── formats.ts              Specs réseaux
 │   ├── filters.ts              Presets et helpers CSS
 │   ├── caption.ts              Parse #/@, autocomplétion
 │   └── export.ts               Téléchargement + Web Share API
 ├── hooks/                      Utilitaires React
 └── types.ts                    Types partagés
+
+proxy/
+└── server.mjs                  Proxy Node 100 % standalone pour X et LinkedIn
 ```

@@ -5,6 +5,7 @@ import { VideoTimeline } from './components/Editor/VideoTimeline';
 import { LayersPanel } from './components/Editor/LayersPanel';
 import { TextInspector } from './components/Editor/TextInspector';
 import { FiltersPanel } from './components/Editor/FiltersPanel';
+import { SubtitlesPanel } from './components/Editor/SubtitlesPanel';
 import { CaptionEditor } from './components/Caption/CaptionEditor';
 import { SocialPreviews } from './components/Preview/SocialPreviews';
 import { AccountsPanel } from './components/Accounts/AccountsPanel';
@@ -33,6 +34,8 @@ export default function App() {
   const caption = useEditor((s) => s.caption);
   const format = useEditor((s) => s.format);
   const video = useEditor((s) => s.video);
+  const subtitleTrack = useEditor((s) => s.subtitleTrack);
+  const subtitleStyle = useEditor((s) => s.subtitleStyle);
   const accounts = useEditor((s) => s.accounts);
   const selectedAccountIds = useEditor((s) => s.selectedAccountIds);
 
@@ -71,6 +74,8 @@ export default function App() {
             width: spec.width,
             height: spec.height,
             overlayPng: overlay,
+            subtitleTrack,
+            subtitleStyle,
             filter,
             onProgress: (p) => setExportProgress(p),
           });
@@ -97,7 +102,7 @@ export default function App() {
       downloadBlob(blob, `${base}-${format}.${type === 'png' ? 'png' : 'jpg'}`);
       notify(`Export ${type.toUpperCase()} téléchargé.`);
     },
-    [media, format, layers, video, filter, notify],
+    [media, format, layers, video, subtitleTrack, subtitleStyle, filter, notify],
   );
 
   const buildShareFile = useCallback(async (): Promise<File | null> => {
@@ -154,6 +159,8 @@ export default function App() {
             width: spec.width,
             height: spec.height,
             overlayPng: overlay,
+            subtitleTrack,
+            subtitleStyle,
             filter,
             onProgress: (p) => setExportProgress(p),
           });
@@ -185,7 +192,7 @@ export default function App() {
     } finally {
       setPublishing(false);
     }
-  }, [media, selectedAccountIds, accounts, caption, format, layers, video, filter, notify]);
+  }, [media, selectedAccountIds, accounts, caption, format, layers, video, subtitleTrack, subtitleStyle, filter, notify]);
 
   return (
     <div className="flex h-full flex-col">
@@ -205,6 +212,7 @@ export default function App() {
             { id: 'layers', label: 'Calques', icon: '📑', content: <LayersPanel /> },
             { id: 'text', label: 'Texte', icon: 'T', content: <TextInspector /> },
             { id: 'filters', label: 'Filtres', icon: '🎨', content: <FiltersPanel /> },
+            { id: 'subs', label: 'Auto-subs', icon: '🎤', content: <SubtitlesPanel /> },
           ]}
         />
 

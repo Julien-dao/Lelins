@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor } from '../../store/editorStore';
 import { FORMATS } from '../../lib/formats';
-import { NETWORK_DOCS } from '../../lib/publishers';
+import { NETWORK_DOCS, checkProxy, resetProxyCache } from '../../lib/publishers';
 import type { SocialNetwork } from '../../types';
 
 const ADDABLE: SocialNetwork[] = [
@@ -19,7 +19,18 @@ const NEEDS_EXTERNAL_ID: SocialNetwork[] = [
   'instagram-reel',
   'instagram-story',
   'facebook',
+  'linkedin',
 ];
+
+const EXTERNAL_ID_LABEL: Partial<Record<SocialNetwork, string>> = {
+  facebook: 'Page ID Facebook',
+  'instagram-feed': 'IG Business Account ID',
+  'instagram-reel': 'IG Business Account ID',
+  'instagram-story': 'IG Business Account ID',
+  linkedin: "URN auteur (urn:li:person:XXXX)",
+};
+
+const NEEDS_PROXY: SocialNetwork[] = ['x', 'linkedin'];
 
 const NEEDS_MEDIA_HOST: SocialNetwork[] = [
   'instagram-feed',
@@ -40,6 +51,24 @@ export function AccountsPanel() {
   const [externalId, setExternalId] = useState('');
   const [mediaHost, setMediaHost] = useState('');
   const [showToken, setShowToken] = useState(false);
+  const [proxyOk, setProxyOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    checkProxy().then((ok) => {
+      if (!cancelled) setProxyOk(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshProxy = async () => {
+    resetProxyCache();
+    setProxyOk(null);
+    const ok = await checkProxy();
+    setProxyOk(ok);
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +99,39 @@ export function AccountsPanel() {
           <code className="mx-1 rounded bg-black/30 px-1">localStorage</code> de ce navigateur.
         </p>
       </div>
+
+      <div
+        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+          proxyOk
+            ? 'border-green-500/30 bg-green-500/10 text-green-300'
+            : 'border-white/10 bg-white/5 text-neutral-300'
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${proxyOk ? 'bg-green-400' : 'bg-neutral-500'}`} />
+        <span className="flex-1">
+          Proxy local : <strong>{proxyOk === null ? '…' : proxyOk ? 'détecté' : 'absent'}</strong>
+          {!proxyOk && (
+            <span className="ml-1 text-neutral-500">
+              — requis pour X/LinkedIn (<code>node proxy/server.mjs</code>)
+            </span>
+          )}
+        </span>
+        <button
+          onClick={refreshProxy}
+          className="rounded px-2 py-0.5 text-[10px] hover:bg-white/10"
+          title="Re-tester"
+        >
+          ↻
+        </button>
+      </div>
+
+      {NEEDS_PROXY.includes(network) && proxyOk === false && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-[11px] text-red-200">
+          Ce réseau exige un proxy local. Lancez{' '}
+          <code className="rounded bg-black/30 px-1">node proxy/server.mjs</code> dans le repo
+          puis cliquez sur ↻.
+        </div>
+      )}
 
       <form onSubmit={submit} className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
         <div>
@@ -119,11 +181,11 @@ export function AccountsPanel() {
         {needsExtId && (
           <div>
             <label className="label">
-              {network === 'facebook' ? 'Page ID' : 'IG Business Account ID'}
+              {EXTERNAL_ID_LABEL[network] ?? 'ID externe'}
             </label>
             <input
               className="input font-mono text-xs"
-              placeholder="1234567890"
+              placeholder={network === 'linkedin' ? 'urn:li:person:XXXX' : '1234567890'}
               value={externalId}
               onChange={(e) => setExternalId(e.target.value)}
             />

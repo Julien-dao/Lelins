@@ -1,34 +1,39 @@
 import { fetchFile } from '@ffmpeg/util';
 import { getFFmpeg, onFFmpegProgress } from './ffmpeg';
-import type { FilterState, VideoSource } from '../types';
+import { buildAss } from './subtitles';
+import type { FilterState, SubtitleSegment, SubtitleStyle, VideoSource } from '../types';
 
 export interface VideoExportOptions {
   source: VideoSource;
   trimStart: number;
   trimEnd: number;
-  /** Target width in px of the exported MP4. Height preserved from source crop. */
   width: number;
   height: number;
-  /** PNG overlay (text + subtitles) with transparent background, sized width×height. */
+  /** PNG overlay (text + sous-titres statiques) avec fond transparent. */
   overlayPng: Uint8Array | null;
+  /** Sous-titres timés à brûler via filter 'subtitles' (séparés des layers statiques). */
+  subtitleTrack: SubtitleSegment[];
+  subtitleStyle: SubtitleStyle;
   filter: FilterState;
   onProgress?: (percent: number) => void;
   onLog?: (line: string) => void;
 }
 
-/**
- * Build the FFmpeg -vf graph to apply filter + scale/pad to target dims + overlay PNG.
- * Chained on the decoded video stream [0:v].
- */
-function buildVideoFilter(
+interface FilterGraph {
+  graph: string;
+  hasOverlay: boolean;
+}
+
+function buildFilterGraph(
   width: number,
   height: number,
   f: FilterState,
   hasOverlay: boolean,
-): { filter: string; useOverlayInput: boolean } {
+  hasSubtitles: boolean,
+  subtitlePath: string,
+): FilterGraph {
   const eq: string[] = [];
-  // FFmpeg `eq` filter: brightness (-1..1), contrast (0..n, 1=neutral), saturation, gamma
-  eq.push(`brightness=${(f.brightness).toFixed(3)}`);
+  eq.push(`brightness=${f.brightness.toFixed(3)}`);
   eq.push(`contrast=${(1 + f.contrast / 100).toFixed(3)}`);
   eq.push(`saturation=${(1 + f.saturation / 2).toFixed(3)}`);
 
@@ -43,22 +48,30 @@ function buildVideoFilter(
     );
   }
   if (f.invert) parts.push('negate');
-
-  // Cover-fit: scale then pad to exact format dims.
   parts.push(
     `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`,
   );
 
-  const base = parts.join(',');
+  // Build chain: [0:v]<filters>[v0]; [v0]<subtitles>[v1]; [v1][1:v]overlay[v]
+  const segments: string[] = [];
+  segments.push(`[0:v]${parts.join(',')}[v0]`);
+  let last = 'v0';
+
+  if (hasSubtitles) {
+    // Escape ':' and ',' in subtitle path for FFmpeg filter syntax.
+    const safe = subtitlePath.replace(/'/g, "\\'");
+    segments.push(`[${last}]subtitles='${safe}'[v1]`);
+    last = 'v1';
+  }
 
   if (hasOverlay) {
-    // [0:v]<filters>[v0]; [v0][1:v]overlay=0:0[v]
-    return {
-      filter: `[0:v]${base}[v0];[v0][1:v]overlay=0:0:format=auto[v]`,
-      useOverlayInput: true,
-    };
+    segments.push(`[${last}][1:v]overlay=0:0:format=auto[v]`);
+    return { graph: segments.join(';'), hasOverlay: true };
   }
-  return { filter: `[0:v]${base}[v]`, useOverlayInput: false };
+
+  // Rename last to [v] for the -map.
+  segments[segments.length - 1] = segments[segments.length - 1].replace(`[${last}]`, '[v]');
+  return { graph: segments.join(';'), hasOverlay: false };
 }
 
 export async function exportVideo(opts: VideoExportOptions): Promise<Blob> {
@@ -69,19 +82,35 @@ export async function exportVideo(opts: VideoExportOptions): Promise<Blob> {
 
   const inputName = 'input' + guessExt(opts.source.file.name);
   const overlayName = 'overlay.png';
+  const subtitleName = 'subs.ass';
   const outputName = 'output.mp4';
+
+  const hasSubtitles = opts.subtitleTrack.length > 0;
+  const hasOverlay = opts.overlayPng !== null;
 
   try {
     await ff.writeFile(inputName, await fetchFile(opts.source.file));
-    if (opts.overlayPng) {
-      await ff.writeFile(overlayName, opts.overlayPng);
+    if (hasOverlay) {
+      await ff.writeFile(overlayName, opts.overlayPng!);
+    }
+    if (hasSubtitles) {
+      const ass = buildAss(
+        opts.subtitleTrack,
+        opts.subtitleStyle,
+        opts.width,
+        opts.height,
+        opts.trimStart,
+      );
+      await ff.writeFile(subtitleName, new TextEncoder().encode(ass));
     }
 
-    const { filter, useOverlayInput } = buildVideoFilter(
+    const { graph } = buildFilterGraph(
       opts.width,
       opts.height,
       opts.filter,
-      opts.overlayPng !== null,
+      hasOverlay,
+      hasSubtitles,
+      subtitleName,
     );
 
     const args: string[] = [
@@ -92,12 +121,10 @@ export async function exportVideo(opts: VideoExportOptions): Promise<Blob> {
       '-i',
       inputName,
     ];
-    if (useOverlayInput) {
-      args.push('-i', overlayName);
-    }
+    if (hasOverlay) args.push('-i', overlayName);
     args.push(
       '-filter_complex',
-      filter,
+      graph,
       '-map',
       '[v]',
       '-map',
@@ -122,16 +149,13 @@ export async function exportVideo(opts: VideoExportOptions): Promise<Blob> {
 
     await ff.exec(args);
     const data = await ff.readFile(outputName);
-    // `readFile` renvoie Uint8Array en mode binaire (notre cas).
     const bytes = data as Uint8Array;
-    // Copie pour détacher le buffer sous-jacent (peut être partagé avec WASM).
     const copy = new Uint8Array(bytes.byteLength);
     copy.set(bytes);
     return new Blob([copy], { type: 'video/mp4' });
   } finally {
     releaseProgress();
-    // Best-effort cleanup — ignore if files aren't present.
-    for (const name of [inputName, overlayName, outputName]) {
+    for (const name of [inputName, overlayName, subtitleName, outputName]) {
       try {
         await ff.deleteFile(name);
       } catch {

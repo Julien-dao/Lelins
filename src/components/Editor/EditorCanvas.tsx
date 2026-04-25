@@ -5,6 +5,7 @@ import useImage from 'use-image';
 import { useEditor } from '../../store/editorStore';
 import { getFormat } from '../../lib/formats';
 import { TextLayerNode } from './TextLayerNode';
+import { LiveSubtitleNode } from './LiveSubtitleNode';
 
 export interface EditorCanvasHandle {
   toDataURL: (mimeType?: string, quality?: number) => string | null;
@@ -242,6 +243,7 @@ export const EditorCanvas = forwardRef<EditorCanvasHandle, Props>(function Edito
             {layers.map((layer) => (
               <TextLayerNode key={layer.id} layer={layer} />
             ))}
+            <LiveSubtitleNode />
             <Transformer
               ref={transformerRef}
               rotateEnabled

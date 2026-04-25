@@ -98,3 +98,19 @@ export interface VideoState {
   trimEnd: number;
   playing: boolean;
 }
+
+export interface SubtitleSegment {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface SubtitleStyle {
+  fontFamily: string;
+  fontSize: number;
+  color: string;
+  background: 'none' | 'box' | 'pill';
+  backgroundColor: string;
+  position: 'top' | 'middle' | 'bottom';
+}

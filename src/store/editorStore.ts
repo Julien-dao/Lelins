@@ -4,6 +4,8 @@ import type {
   MediaSource,
   SocialAccount,
   SocialNetwork,
+  SubtitleSegment,
+  SubtitleStyle,
   TextLayer,
   VideoState,
 } from '../types';
@@ -21,6 +23,8 @@ interface EditorState {
   caption: string;
   accounts: SocialAccount[];
   selectedAccountIds: string[];
+  subtitleTrack: SubtitleSegment[];
+  subtitleStyle: SubtitleStyle;
 
   setMedia: (media: MediaSource | null) => void;
   setFormat: (format: SocialNetwork) => void;
@@ -28,6 +32,12 @@ interface EditorState {
   setVideoTime: (t: number) => void;
   setVideoTrim: (start: number, end: number) => void;
   setVideoPlaying: (playing: boolean) => void;
+
+  setSubtitleTrack: (segments: SubtitleSegment[]) => void;
+  updateSubtitleSegment: (id: string, patch: Partial<SubtitleSegment>) => void;
+  removeSubtitleSegment: (id: string) => void;
+  clearSubtitleTrack: () => void;
+  setSubtitleStyle: (patch: Partial<SubtitleStyle>) => void;
 
   addTextLayer: (kind: 'text' | 'subtitle') => void;
   updateLayer: (id: string, patch: Partial<TextLayer>) => void;
@@ -99,6 +109,15 @@ const DEFAULT_VIDEO: VideoState = {
   playing: false,
 };
 
+const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
+  fontFamily: 'Inter',
+  fontSize: 56,
+  color: '#ffffff',
+  background: 'pill',
+  backgroundColor: '#000000',
+  position: 'bottom',
+};
+
 export const useEditor = create<EditorState>((set, get) => ({
   media: null,
   video: DEFAULT_VIDEO,
@@ -109,6 +128,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   caption: '',
   accounts: loadAccounts(),
   selectedAccountIds: [],
+  subtitleTrack: [],
+  subtitleStyle: DEFAULT_SUBTITLE_STYLE,
 
   setMedia: (media) =>
     set({
@@ -117,6 +138,8 @@ export const useEditor = create<EditorState>((set, get) => ({
         media?.kind === 'video'
           ? { currentTime: 0, trimStart: 0, trimEnd: media.duration, playing: false }
           : DEFAULT_VIDEO,
+      // Importing a new media drops any auto-generated subtitle track.
+      subtitleTrack: [],
     }),
 
   setFormat: (format) => set({ format }),
@@ -131,6 +154,19 @@ export const useEditor = create<EditorState>((set, get) => ({
       },
     })),
   setVideoPlaying: (playing) => set((s) => ({ video: { ...s.video, playing } })),
+
+  setSubtitleTrack: (segments) => set({ subtitleTrack: segments }),
+  updateSubtitleSegment: (id, patch) =>
+    set((s) => ({
+      subtitleTrack: s.subtitleTrack.map((seg) =>
+        seg.id === id ? { ...seg, ...patch } : seg,
+      ),
+    })),
+  removeSubtitleSegment: (id) =>
+    set((s) => ({ subtitleTrack: s.subtitleTrack.filter((seg) => seg.id !== id) })),
+  clearSubtitleTrack: () => set({ subtitleTrack: [] }),
+  setSubtitleStyle: (patch) =>
+    set((s) => ({ subtitleStyle: { ...s.subtitleStyle, ...patch } })),
 
   addTextLayer: (kind) => {
     const layer = makeTextLayer(kind, get().format);

@@ -2,6 +2,27 @@ import type { SocialAccount, SocialNetwork } from '../types';
 
 export type PublishStatus = 'success' | 'needs-config' | 'cors-blocked' | 'error';
 
+const PROXY_URL = 'http://127.0.0.1:8088';
+let proxyAvailable: boolean | null = null;
+
+export async function checkProxy(): Promise<boolean> {
+  if (proxyAvailable !== null) return proxyAvailable;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 800);
+    const res = await fetch(`${PROXY_URL}/_health`, { signal: ctrl.signal });
+    clearTimeout(t);
+    proxyAvailable = res.ok;
+  } catch {
+    proxyAvailable = false;
+  }
+  return proxyAvailable;
+}
+
+export function resetProxyCache() {
+  proxyAvailable = null;
+}
+
 export interface PublishResult {
   accountId: string;
   network: SocialNetwork;
@@ -73,12 +94,9 @@ export async function publish(input: PublishInput): Promise<PublishResult> {
       case 'tiktok':
         return await publishTikTok(input);
       case 'x':
+        return await publishX(input);
       case 'linkedin':
-        return result(
-          account,
-          'cors-blocked',
-          `${NETWORK_DOCS[account.network].label} n'autorise pas l'appel direct depuis le navigateur (CORS). Utilisez un proxy local — voir README.`,
-        );
+        return await publishLinkedIn(input);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -320,4 +338,216 @@ async function publishTikTok({ account, file }: PublishInput): Promise<PublishRe
     'success',
     `TikTok : vidéo dans l'Inbox. Terminez la publication dans l'app TikTok.`,
   );
+}
+
+// ============================================================================
+// X (Twitter) — exige un proxy local (CORS strict). Routes via /x/ et /x-upload/.
+// Endpoint: POST /2/tweets pour le tweet (texte), upload v1.1 pour le média.
+// ============================================================================
+async function publishX({ account, caption, file }: PublishInput): Promise<PublishResult> {
+  const ok = await checkProxy();
+  if (!ok) {
+    return result(
+      account,
+      'cors-blocked',
+      "Proxy local non détecté. Lancez `node proxy/server.mjs` puis réessayez.",
+    );
+  }
+
+  // 1. Upload média (v1.1, INIT/APPEND/FINALIZE)
+  const isVideo = file.type.startsWith('video/');
+  const initParams = new URLSearchParams();
+  initParams.set('command', 'INIT');
+  initParams.set('total_bytes', String(file.size));
+  initParams.set('media_type', file.type);
+  if (isVideo) initParams.set('media_category', 'tweet_video');
+
+  const initRes = await fetch(`${PROXY_URL}/x-upload/1.1/media/upload.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${account.token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: initParams,
+  });
+  if (!initRes.ok) {
+    const body = await initRes.text();
+    return result(account, 'error', `X INIT échec (${initRes.status}): ${body.slice(0, 200)}`);
+  }
+  const { media_id_string } = (await initRes.json()) as { media_id_string: string };
+
+  // APPEND chunks (5 MB max each).
+  const chunkSize = 5 * 1024 * 1024;
+  let segment = 0;
+  for (let off = 0; off < file.size; off += chunkSize, segment++) {
+    const slice = file.slice(off, off + chunkSize);
+    const form = new FormData();
+    form.set('command', 'APPEND');
+    form.set('media_id', media_id_string);
+    form.set('segment_index', String(segment));
+    form.set('media', slice);
+    const ap = await fetch(`${PROXY_URL}/x-upload/1.1/media/upload.json`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${account.token}` },
+      body: form,
+    });
+    if (!ap.ok) {
+      const body = await ap.text();
+      return result(account, 'error', `X APPEND échec (${ap.status}): ${body.slice(0, 200)}`);
+    }
+  }
+
+  const finParams = new URLSearchParams();
+  finParams.set('command', 'FINALIZE');
+  finParams.set('media_id', media_id_string);
+  const fin = await fetch(`${PROXY_URL}/x-upload/1.1/media/upload.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${account.token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: finParams,
+  });
+  if (!fin.ok) {
+    const body = await fin.text();
+    return result(account, 'error', `X FINALIZE échec (${fin.status}): ${body.slice(0, 200)}`);
+  }
+
+  // 2. Création du tweet
+  const tweet = await fetch(`${PROXY_URL}/x/2/tweets`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${account.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text: caption.slice(0, 280),
+      media: { media_ids: [media_id_string] },
+    }),
+  });
+  if (!tweet.ok) {
+    const body = await tweet.text();
+    return result(account, 'error', `X tweet échec (${tweet.status}): ${body.slice(0, 200)}`);
+  }
+  const tweetData = (await tweet.json()) as { data?: { id?: string } };
+  const id = tweetData.data?.id;
+  return result(
+    account,
+    'success',
+    `X : tweet publié.`,
+    id ? `https://x.com/${account.handle}/status/${id}` : undefined,
+  );
+}
+
+// ============================================================================
+// LinkedIn — exige un proxy local. UGC posts API + media upload.
+// account.externalId = URN de la personne ("urn:li:person:XXXX") ou de l'organisation.
+// ============================================================================
+async function publishLinkedIn({
+  account,
+  caption,
+  file,
+}: PublishInput): Promise<PublishResult> {
+  if (!account.externalId) {
+    return result(
+      account,
+      'needs-config',
+      "URN auteur LinkedIn manquant (ex. 'urn:li:person:XXXX').",
+    );
+  }
+  const ok = await checkProxy();
+  if (!ok) {
+    return result(
+      account,
+      'cors-blocked',
+      "Proxy local non détecté. Lancez `node proxy/server.mjs` puis réessayez.",
+    );
+  }
+
+  const isVideo = file.type.startsWith('video/');
+  const recipe = isVideo
+    ? 'urn:li:digitalmediaRecipe:feedshare-video'
+    : 'urn:li:digitalmediaRecipe:feedshare-image';
+
+  // 1. Register upload
+  const reg = await fetch(`${PROXY_URL}/linkedin/v2/assets?action=registerUpload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${account.token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify({
+      registerUploadRequest: {
+        owner: account.externalId,
+        recipes: [recipe],
+        serviceRelationships: [
+          { identifier: 'urn:li:userGeneratedContent', relationshipType: 'OWNER' },
+        ],
+      },
+    }),
+  });
+  if (!reg.ok) {
+    const body = await reg.text();
+    return result(account, 'error', `LinkedIn register échec (${reg.status}): ${body.slice(0, 200)}`);
+  }
+  const regData = (await reg.json()) as {
+    value: {
+      asset: string;
+      uploadMechanism: {
+        'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest': { uploadUrl: string };
+      };
+    };
+  };
+  const uploadUrl = regData.value.uploadMechanism[
+    'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'
+  ].uploadUrl;
+  const asset = regData.value.asset;
+
+  // 2. Upload bytes (LinkedIn returns a direct CDN URL — proxy not needed here,
+  //    but it may still be CORS-blocked. Try direct first, fall back via proxy.)
+  let up = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${account.token}` },
+    body: file,
+  }).catch(() => null);
+  if (!up || !up.ok) {
+    return result(
+      account,
+      'error',
+      'Upload LinkedIn échoué (CDN bloqué ?). Vérifiez les logs réseau.',
+    );
+  }
+
+  // 3. Create UGC post
+  const post = await fetch(`${PROXY_URL}/linkedin/v2/ugcPosts`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${account.token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify({
+      author: account.externalId,
+      lifecycleState: 'PUBLISHED',
+      specificContent: {
+        'com.linkedin.ugc.ShareContent': {
+          shareCommentary: { text: caption },
+          shareMediaCategory: isVideo ? 'VIDEO' : 'IMAGE',
+          media: [
+            {
+              status: 'READY',
+              media: asset,
+            },
+          ],
+        },
+      },
+      visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+    }),
+  });
+  if (!post.ok) {
+    const body = await post.text();
+    return result(account, 'error', `LinkedIn post échec (${post.status}): ${body.slice(0, 200)}`);
+  }
+  return result(account, 'success', 'LinkedIn : publication envoyée.');
 }
