@@ -39,25 +39,70 @@ QUALITY_SUFFIX = (
 
 
 BACKGROUNDS = {
-    "studio_white": "plain white seamless studio background, clean, minimalist, "
+    # === Studio (clean, focus produit) ===
+    "studio_white": "plain white seamless studio background, clean minimalist, "
         "even softbox lighting, high-key fashion photography",
-    "studio_grey": "soft grey seamless studio background, minimalist, "
-        "controlled studio lighting, fashion catalog look",
-    "studio_beige": "warm beige seamless background, editorial fashion, "
-        "soft directional light",
-    "loft": "modern loft interior, large window natural light streaming in, "
-        "minimalist decor, morning sunshine, lifestyle photography",
+    "studio_grey": "soft grey seamless studio background, controlled studio lighting, "
+        "professional fashion catalog look",
+    "studio_beige": "warm beige seamless background, soft directional light, "
+        "editorial fashion mood",
+    "studio_black": "deep black seamless studio background, dramatic rim lighting, "
+        "low-key moody fashion editorial, contrasted shadows",
+
+    # === Intérieur lifestyle (intime, vie quotidienne) ===
+    "loft": "modern minimalist loft, large industrial windows, morning sunshine streaming in, "
+        "wooden floors, lifestyle photography",
+    "bedroom_morning": "modern bedroom in morning light, white linen sheets gently rumpled, "
+        "soft natural light through sheer curtains, cozy intimate atmosphere, lifestyle editorial",
+    "bathroom_modern": "modern minimalist bathroom, marble surfaces, large mirror, "
+        "soft natural light from window, post-shower steam, clean luxurious aesthetic",
+    "kitchen_morning": "modern minimalist kitchen, morning sunshine, "
+        "coffee mug on marble counter, casual home lifestyle",
+    "lounge_penthouse": "luxury penthouse lounge, leather sofa, floor-to-ceiling windows, "
+        "city skyline view at sunset, sophisticated atmosphere",
+    "cabin_fireplace": "cozy mountain cabin interior, stone fireplace with crackling fire, "
+        "knit throw blankets, warm autumn light, intimate cozy mood",
+
+    # === Plein air nature ===
     "outdoor_beach": "tropical beach at golden hour, turquoise water, palm trees in background, "
-        "wet sand reflecting sunset, warm golden light, "
-        "cinematic ocean horizon, summer vibes",
+        "wet sand reflecting sunset, warm golden light, summer vibes",
     "outdoor_beach_walking": "walking on tropical beach at golden hour, mid-stride pose, "
         "palm trees silhouette, turquoise ocean, soft waves on sand, "
-        "warm sunset backlight, hair gently moving in sea breeze, "
-        "cinematic motion, fashion editorial, slow-motion feel",
-    "urban": "urban rooftop at sunset, modern architecture background, "
-        "city skyline, cinematic warm light, fashion editorial",
+        "warm sunset backlight, hair gently moving in sea breeze, cinematic editorial",
     "pool": "luxury pool deck at golden hour, turquoise water reflections, "
-        "modern minimalist architecture, warm summer light",
+        "modern minimalist architecture, palm trees, warm summer light",
+    "forest_morning": "dense pine forest in morning fog, soft diffused light through tall trees, "
+        "moss-covered ground, mystical atmosphere, nature editorial",
+    "mountain_vista": "mountain peak at sunrise, snow-capped peaks in distance, "
+        "alpine landscape, dramatic wide vista, soft golden light",
+    "lake_jetty": "wooden jetty over still mountain lake, mist rising from water, "
+        "soft morning light, serene nature setting",
+    "desert_dunes": "vast desert sand dunes at sunset, warm orange light, "
+        "long dramatic shadows, cinematic landscape",
+
+    # === Urbain ===
+    "urban": "urban rooftop at sunset, modern architecture background, city skyline, "
+        "cinematic warm light, fashion editorial",
+    "urban_alley": "narrow urban alley with brick walls, soft evening light, "
+        "discrete graffiti accents, gritty fashion editorial mood",
+    "industrial_warehouse": "industrial warehouse loft, exposed brick walls, "
+        "large windows with afternoon sun, raw concrete floors, fashion editorial",
+    "balcony_city": "modern balcony with city skyline view at sunset, glass railings, "
+        "golden hour reflections on glass towers",
+    "subway_station": "modern subway station with geometric tile patterns, "
+        "soft fluorescent lighting, clean urban editorial",
+    "parking_garage": "modern concrete parking garage at dusk, dramatic side lighting, "
+        "geometric columns, fashion editorial atmosphere",
+
+    # === Sport / hôtel / luxe ===
+    "gym_modern": "modern boutique gym with industrial design, large windows with morning sun, "
+        "dumbbells and equipment in soft focus background, athletic editorial",
+    "hotel_suite": "luxury hotel suite, large windows with ocean view, marble floors, "
+        "white bed sheets, soft afternoon light, sophisticated travel editorial",
+    "yacht_deck": "luxury yacht deck on calm Mediterranean sea, wooden planks, "
+        "white sails, sunny afternoon, blue ocean horizon, summer travel",
+    "spa_modern": "modern spa interior, dark wood and natural stone, "
+        "soft warm candle light, serene wellness atmosphere",
 }
 
 

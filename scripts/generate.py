@@ -167,9 +167,21 @@ def parse_args() -> argparse.Namespace:
                    choices=["athletic", "slim", "mature", "casual"],
                    help="Preset simple (utilisé si --character n'est pas fourni)")
     p.add_argument("--background", type=str, default="studio_white",
-                   choices=["studio_white", "studio_grey", "studio_beige",
-                            "loft", "outdoor_beach", "outdoor_beach_walking",
-                            "pool", "urban"],
+                   choices=[
+                       # Studio
+                       "studio_white", "studio_grey", "studio_beige", "studio_black",
+                       # Intérieur lifestyle
+                       "loft", "bedroom_morning", "bathroom_modern", "kitchen_morning",
+                       "lounge_penthouse", "cabin_fireplace",
+                       # Plein air nature
+                       "outdoor_beach", "outdoor_beach_walking", "pool",
+                       "forest_morning", "mountain_vista", "lake_jetty", "desert_dunes",
+                       # Urbain
+                       "urban", "urban_alley", "industrial_warehouse",
+                       "balcony_city", "subway_station", "parking_garage",
+                       # Sport / luxe
+                       "gym_modern", "hotel_suite", "yacht_deck", "spa_modern",
+                   ],
                    help="Arrière-plan")
     p.add_argument("--pose", type=str,
                    default="standing front view, arms relaxed at sides",
