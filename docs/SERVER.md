@@ -112,13 +112,42 @@ Mac M1/M2 8 Go où SDXL provoque du swap massif.
 | M2 16 Go        | ~60 s                      | ~20 s                    | ~25 s                      |
 | M3 Max          | ~25 s                      | ~6 s                     | ~10 s                      |
 
-### À savoir sur SD 1.5
+### À savoir sur SD 1.5 (mode 🪶 Léger)
 
-- Modèle plus ancien (2022) que SDXL (2023). Esthétique parfois moins moderne.
-- Toujours très utilisé pour le photoréalisme grâce à de nombreuses fines
-  versions communautaires (Realistic Vision, DreamShaper, etc.).
-- Si la qualité de base SD 1.5 ne te convient pas, on peut basculer sur une
-  version fine-tunée — me demander.
+Le mode léger utilise **DreamShaper 8** (`Lykon/dreamshaper-8`), un fine-tune
+SD 1.5 spécialisé photoréalisme et fashion editorial. Choix par défaut parce
+que :
+
+- Même taille que SD 1.5 vanilla (~4 Go) → tient sans swap sur Mac 8 Go
+- Bien meilleur rendu humain photoréaliste que SD 1.5 brut
+- Bien noté par la communauté pour la photographie de mode
+- Inclut son propre VAE (rien à configurer)
+
+### Texte sur le vêtement (logo, marque)
+
+⚠️ **Stable Diffusion ne sait pas écrire de texte propre** — un logo généré
+sera des lettres approximatives ou bouillies. Pour un logo Lelins lisible,
+deux solutions :
+
+1. **Essayage virtuel** (`tryon.py` ou onglet « Essayage virtuel ») —
+   uploader la photo réelle de ton boxer (avec le vrai logo brodé), et
+   l'appliquer sur le mannequin généré. Le logo reste fidèle au pixel.
+2. **Retouche Photoshop** post-génération — le mannequin est généré sans
+   logo, tu colles ton logo en post-prod.
+
+### Alternatives de fine-tune
+
+Si DreamShaper 8 ne te convient pas, autres options recommandées (~4 Go
+chacun, swap manuel dans `scripts/generate.py` SD15_MODEL_ID) :
+
+| Modèle                                          | Spécialité                        |
+|-------------------------------------------------|-----------------------------------|
+| `SG161222/Realistic_Vision_V6.0_B1_noVAE` (a)   | Photoréalisme humain ultra-poussé |
+| `Yntec/epiCPhotoGasm`                           | Photo studio professionnelle      |
+| `digiplay/AbsoluteReality_v1.8.1`               | Réalisme polyvalent               |
+| `Lykon/dreamshaper-8` (par défaut)              | Polyvalent éditorial              |
+
+(a) Realistic Vision nécessite un VAE séparé — me demander si tu veux y passer.
 
 ### Anciens repères Mode rapide (SDXL Turbo)
 

@@ -24,6 +24,14 @@
     "variations": 1
   },
   {
+    "name": "main-trunk-raye-plage-marche",
+    "character": "characters/lelins-main.json",
+    "garment": "blue and white striped boxer trunk with cream waistband, athletic cut, summer fabric",
+    "background": "outdoor_beach_walking",
+    "pose": "walking on wet sand mid-stride, side view, looking forward, hair gently moving",
+    "variations": 2
+  },
+  {
     "name": "main-tshirt-blanc-studio",
     "character": "characters/lelins-main.json",
     "garment": "fitted white crew neck t-shirt, premium cotton, and dark denim jeans",

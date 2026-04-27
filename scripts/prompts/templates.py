@@ -29,19 +29,35 @@ DEFAULT_NEGATIVE = (
 
 
 QUALITY_SUFFIX = (
-    "professional commercial product photography, studio lighting, soft key light, "
-    "high detail fabric texture, sharp focus, photorealistic, 8k, "
-    "shot on Canon EOS R5, 85mm lens, shallow depth of field"
+    "fashion editorial photography, magazine cover quality, "
+    "cinematic lighting, professional color grading, "
+    "natural skin tones, detailed skin texture, perfect anatomy, "
+    "high detail fabric, sharp focus on subject, blurred background bokeh, "
+    "shot on Canon EOS R5, 85mm f/1.4 lens, shallow depth of field, "
+    "photorealistic, 8k, ultra detailed, masterpiece"
 )
 
 
 BACKGROUNDS = {
-    "studio_white": "plain white seamless studio background, clean, minimalist",
-    "studio_grey": "soft grey seamless studio background, minimalist",
-    "studio_beige": "warm beige seamless background, editorial",
-    "loft": "modern loft interior, large window natural light, minimalist decor",
-    "outdoor_beach": "sunny beach in golden hour, soft natural light, warm tones",
-    "urban": "urban rooftop at sunset, modern architecture background, cinematic",
+    "studio_white": "plain white seamless studio background, clean, minimalist, "
+        "even softbox lighting, high-key fashion photography",
+    "studio_grey": "soft grey seamless studio background, minimalist, "
+        "controlled studio lighting, fashion catalog look",
+    "studio_beige": "warm beige seamless background, editorial fashion, "
+        "soft directional light",
+    "loft": "modern loft interior, large window natural light streaming in, "
+        "minimalist decor, morning sunshine, lifestyle photography",
+    "outdoor_beach": "tropical beach at golden hour, turquoise water, palm trees in background, "
+        "wet sand reflecting sunset, warm golden light, "
+        "cinematic ocean horizon, summer vibes",
+    "outdoor_beach_walking": "walking on tropical beach at golden hour, mid-stride pose, "
+        "palm trees silhouette, turquoise ocean, soft waves on sand, "
+        "warm sunset backlight, hair gently moving in sea breeze, "
+        "cinematic motion, fashion editorial, slow-motion feel",
+    "urban": "urban rooftop at sunset, modern architecture background, "
+        "city skyline, cinematic warm light, fashion editorial",
+    "pool": "luxury pool deck at golden hour, turquoise water reflections, "
+        "modern minimalist architecture, warm summer light",
 }
 
 

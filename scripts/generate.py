@@ -44,7 +44,13 @@ from prompts import Character, ProductPrompt, simple_prompt  # noqa: E402
 
 DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
 SDXL_TURBO_MODEL_ID = "stabilityai/sdxl-turbo"
-SD15_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+
+# Pour le mode 'light', on utilise un fine-tune SD 1.5 spécialisé
+# photoréalisme — DreamShaper 8 — au lieu du SD 1.5 vanilla qui donne
+# des humains génériques. Même taille (~4 Go) mais qualité editorial.
+SD15_MODEL_ID = "Lykon/dreamshaper-8"
+# Pour info : fallback si dreamshaper-8 indisponible
+SD15_VANILLA_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 
 # VAE corrigé pour éviter l'overflow fp16 sur Mac MPS qui produit des
 # images entièrement noires. Voir https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
@@ -162,7 +168,8 @@ def parse_args() -> argparse.Namespace:
                    help="Preset simple (utilisé si --character n'est pas fourni)")
     p.add_argument("--background", type=str, default="studio_white",
                    choices=["studio_white", "studio_grey", "studio_beige",
-                            "loft", "outdoor_beach", "urban"],
+                            "loft", "outdoor_beach", "outdoor_beach_walking",
+                            "pool", "urban"],
                    help="Arrière-plan")
     p.add_argument("--pose", type=str,
                    default="standing front view, arms relaxed at sides",
