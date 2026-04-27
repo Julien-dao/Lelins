@@ -20,8 +20,21 @@ les suivantes ~10-60 s selon le matériel.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# IMPORTANT: doit être positionné AVANT tout import de torch.
+#
+# Sur Mac MPS, PyTorch limite par défaut l'allocation à ~70% de la RAM totale
+# (haut watermark) pour protéger le système. Sur 8 Go c'est trop juste pour
+# SDXL (qui peut demander 8-9 Go en pic). On désactive la limite : macOS
+# gérera naturellement le swap sur SSD si nécessaire — c'est lent mais ça
+# évite le crash 'MPS backend out of memory'.
+#
+# Sur 16 Go+ ce flag est inoffensif (l'allocation reste sous le plafond
+# physique, pas de swap déclenché).
+os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
 
 ROOT = Path(__file__).resolve().parent.parent
 

@@ -9,6 +9,25 @@ document.querySelectorAll('.tab').forEach(btn => {
   });
 });
 
+// Quand le toggle « Mode rapide » bascule, on adapte la résolution recommandée
+// (SDXL Turbo donne ses meilleurs résultats en 512x512). On sauvegarde l'ancienne
+// valeur pour la restaurer si on redécoche.
+document.querySelectorAll('.fast-toggle input[type="checkbox"]').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const form = cb.closest('form');
+    if (!form) return;
+    const w = form.querySelector('input[name="width"]');
+    const h = form.querySelector('input[name="height"]');
+    if (cb.checked) {
+      if (w) { w.dataset.previous = w.value; w.value = 512; }
+      if (h) { h.dataset.previous = h.value; h.value = 512; }
+    } else {
+      if (w && w.dataset.previous) w.value = w.dataset.previous;
+      if (h && h.dataset.previous) h.value = h.dataset.previous;
+    }
+  });
+});
+
 function fmtSeconds(s) {
   if (s == null || isNaN(s)) return '';
   if (s < 60) return Math.round(s) + 's';

@@ -465,6 +465,14 @@ def get_character_file(filename: str):
 #   - error    : exception levée (message)
 # ----------------------------------------------------------------------------
 
+def _is_oom(exc: Exception) -> bool:
+    """Détecte une OOM MPS / CUDA."""
+    msg = str(exc).lower()
+    return ("out of memory" in msg
+            or "mps backend out of memory" in msg
+            or "cuda out of memory" in msg)
+
+
 def _format_sse(event_type: str, **data) -> str:
     payload = {"type": event_type, **data}
     return f"data: {json.dumps(payload)}\n\n"
@@ -481,6 +489,42 @@ def _drain_queue_to_sse(queue: Queue, timeout: float = 1800.0):
         yield _format_sse(event_type, **data)
         if event_type in ("done", "error"):
             return
+
+
+def _generate_with_oom_retry(
+    pipe,
+    queue: Queue,
+    pipe_kwargs: dict,
+    t_ref: Optional[dict] = None,
+    fallback_size: int = 512,
+):
+    """Lance pipe(...) en réessayant à ``fallback_size`` si OOM.
+
+    En 8 Go RAM, certaines combinaisons (1024×1024 + IP-Adapter + adapter
+    général) franchissent le plafond MPS. Plutôt que de planter, on libère
+    et on retente à 512×512 en informant l'utilisateur.
+    """
+    try:
+        return pipe(**pipe_kwargs).images[0]
+    except RuntimeError as e:
+        if not _is_oom(e):
+            raise
+        original = (pipe_kwargs.get("width"), pipe_kwargs.get("height"))
+        new_w = min(pipe_kwargs.get("width", fallback_size), fallback_size)
+        new_h = min(pipe_kwargs.get("height", fallback_size), fallback_size)
+        if (new_w, new_h) == original:
+            # Déjà à la résolution mini, rien à essayer.
+            raise
+        queue.put(("status", {
+            "message": f"Mémoire insuffisante à {original[0]}×{original[1]}, "
+                       f"on réessaie à {new_w}×{new_h}…"
+        }))
+        _free_memory()
+        pipe_kwargs["width"] = new_w
+        pipe_kwargs["height"] = new_h
+        if t_ref is not None:
+            t_ref["t0"] = time.time()  # reset ETA pour cette nouvelle tentative
+        return pipe(**pipe_kwargs).images[0]
 
 
 def _make_step_callback(queue: Queue, total_steps: int, t_start_ref: dict):
@@ -520,9 +564,12 @@ def api_generate_stream(
     queue: Queue = Queue()
 
     # En mode rapide (SDXL Turbo), on impose les paramètres recommandés.
+    # SDXL Turbo est entraîné en 512×512 ; au-delà la qualité chute.
     if mode == "fast":
         steps = 4
         cfg = 0.0
+        width = min(width, 768)
+        height = min(height, 768)
 
     def emit(event_type, **data):
         queue.put((event_type, data))
@@ -594,7 +641,7 @@ def api_generate_stream(
             if face_ref_image is not None:
                 pipe_kwargs["ip_adapter_image"] = face_ref_image
 
-            image = pipe(**pipe_kwargs).images[0]
+            image = _generate_with_oom_retry(pipe, queue, pipe_kwargs, t_ref=t_ref)
             elapsed = time.time() - t_ref["t0"]
 
             name = _timestamp_name("gen")
@@ -633,6 +680,8 @@ def api_generate_character_stream(
     if mode == "fast":
         steps = 4
         cfg = 0.0
+        width = min(width, 768)
+        height = min(height, 768)
 
     def emit(event_type, **data):
         queue.put((event_type, data))
@@ -670,7 +719,7 @@ def api_generate_character_stream(
             t_ref = {"t0": time.time()}
             cb = _make_step_callback(queue, steps, t_ref)
 
-            image = pipe(
+            portrait_kwargs = dict(
                 prompt=character.build_portrait_prompt(),
                 negative_prompt=DEFAULT_NEGATIVE if mode != "fast" else None,
                 width=width,
@@ -679,7 +728,8 @@ def api_generate_character_stream(
                 guidance_scale=cfg,
                 generator=generator,
                 callback_on_step_end=cb,
-            ).images[0]
+            )
+            image = _generate_with_oom_retry(pipe, queue, portrait_kwargs, t_ref=t_ref)
             elapsed = time.time() - t_ref["t0"]
 
             out_name = f"{path.stem}.png"
@@ -784,7 +834,7 @@ async def api_tryon_stream(
             t_ref = {"t0": time.time()}
             cb = _make_step_callback(queue, steps, t_ref)
 
-            image = pipe(
+            tryon_kwargs = dict(
                 prompt=full_prompt,
                 negative_prompt=DEFAULT_NEGATIVE,
                 image=person_image,
@@ -797,7 +847,13 @@ async def api_tryon_stream(
                 strength=strength,
                 generator=generator,
                 callback_on_step_end=cb,
-            ).images[0]
+            )
+            # Pour le try-on, le retry OOM ne peut pas réduire arbitrairement
+            # la résolution (elle est dictée par la person_image). On laisse
+            # le helper essayer mais en pratique il faut que l'utilisateur
+            # uploade une image plus petite si OOM.
+            image = _generate_with_oom_retry(pipe, queue, tryon_kwargs, t_ref=t_ref,
+                                              fallback_size=min(w, h, 512))
             elapsed = time.time() - t_ref["t0"]
 
             name = _timestamp_name("tryon")

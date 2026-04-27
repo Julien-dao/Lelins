@@ -153,6 +153,36 @@ plus vite :
 - N'utilise pas le try-on en parallèle d'une génération en cours (deux
   modèles SDXL en mémoire = swap garanti = lenteur extrême).
 
+## Erreur "MPS backend out of memory"
+
+Sur 8-16 Go RAM, certaines combinaisons (résolution élevée + IP-Adapter +
+modèle inpainting) peuvent dépasser la limite mémoire MPS d'Apple.
+
+**Le serveur est désormais protégé sur deux niveaux** :
+
+1. **Désactivation du plafond MPS** — `scripts/serve.py` positionne
+   automatiquement `PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0` au démarrage.
+   Cela permet à PyTorch de demander plus de RAM que la limite par défaut
+   (~70 % de la RAM totale) ; macOS gère le swap sur SSD si nécessaire.
+   Lent mais évite le crash.
+
+2. **Retry automatique à 512×512** — si une génération hit l'OOM malgré tout,
+   le serveur libère la mémoire et **relance automatiquement à 512×512**.
+   Tu vois le message dans la barre de progression :
+   « Mémoire insuffisante à 1024×1024, on réessaie à 512×512… »
+
+### Si l'OOM persiste à 512×512
+
+C'est rare mais possible. Solutions, par ordre :
+
+1. **Quitter toutes les autres apps** (Chrome surtout — vérifier dans le
+   moniteur d'activité, trier par mémoire).
+2. **Activer le mode rapide** (SDXL Turbo + 512×512 par défaut, le plus léger).
+3. **Désactiver le verrouillage du visage** (case « Désactiver le verrouillage
+   du visage » dans Paramètres avancés) — économise ~1-2 Go.
+4. **Redémarrer le serveur** (`CTRL+C` puis relancer) — purge la RAM.
+5. En dernier recours, **redémarrer le Mac** — libère le swap accumulé.
+
 ## Accéder depuis le téléphone
 
 ### Option A — Réseau local (Wi-Fi commun)
