@@ -78,9 +78,10 @@
           <label>Hauteur <input type="number" name="height" value="1024" min="512" max="1536" step="64"></label>
         </div>
         <div class="row">
-          <label>Pas (steps) <input type="number" name="steps" value="30" min="15" max="60"></label>
+          <label>Pas (steps) <input type="number" name="steps" value="25" min="12" max="60"></label>
           <label>CFG <input type="number" name="cfg" value="7.0" step="0.5" min="3" max="12"></label>
         </div>
+        <p class="hint">Astuce : 15-20 pas pour itérer vite, 30+ pour le rendu final.</p>
         <div class="row">
           <label>Seed <input type="number" name="seed" placeholder="auto"></label>
           <label>Force visage <input type="range" name="face_scale" min="0.4" max="1.0" step="0.05" value="0.7" oninput="this.nextElementSibling.textContent=this.value"><span>0.7</span></label>
@@ -121,9 +122,10 @@
           <label>Hauteur <input type="number" name="height" value="1152" min="512" max="1536" step="64"></label>
         </div>
         <div class="row">
-          <label>Pas (steps) <input type="number" name="steps" value="35" min="15" max="60"></label>
+          <label>Pas (steps) <input type="number" name="steps" value="28" min="12" max="60"></label>
           <label>CFG <input type="number" name="cfg" value="7.0" step="0.5" min="3" max="12"></label>
         </div>
+        <p class="hint">Astuce : 18-22 pas pour itérer sur le visage, 35+ pour la version finale.</p>
         <label>Seed (force) <input type="number" name="seed" placeholder="auto"></label>
       </details>
 
@@ -174,7 +176,7 @@
           <label>Force inpaint <input type="range" name="strength" min="0.7" max="1.0" step="0.05" value="0.95" oninput="this.nextElementSibling.textContent=this.value"><span>0.95</span></label>
         </div>
         <div class="row">
-          <label>Pas (steps) <input type="number" name="steps" value="35" min="15" max="60"></label>
+          <label>Pas (steps) <input type="number" name="steps" value="28" min="12" max="60"></label>
           <label>CFG <input type="number" name="cfg" value="7.5" step="0.5" min="3" max="12"></label>
         </div>
         <label>Seed <input type="number" name="seed" placeholder="auto"></label>

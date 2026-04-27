@@ -195,6 +195,16 @@ details > div, details > label {
   margin-top: 10px;
 }
 
+p.hint {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+}
+
 button.primary {
   font: inherit;
   font-size: 16px;
@@ -258,14 +268,71 @@ button.primary:disabled {
 }
 
 .spinner {
-  width: 18px;
-  height: 18px;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+  margin-right: 8px;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Barre de progression — événements SSE en streaming */
+.progress {
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text);
+  flex-wrap: wrap;
+}
+
+.progress-info .progress-message {
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+.progress-info .progress-eta {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.25s ease-out;
+}
+
+.progress-detail {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-height: 1em;
 }

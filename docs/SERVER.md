@@ -65,6 +65,44 @@ L'interface est divisée en trois onglets :
 - Les modèles **restent en mémoire** entre requêtes — ne pas relancer le
   serveur entre deux générations.
 
+## Suivi en direct (streaming SSE)
+
+L'interface utilise du **Server-Sent Events** : pendant chaque génération tu
+vois en temps réel
+- les messages de chargement (modèle, IP-Adapter…) ;
+- une barre de progression qui avance pas à pas ;
+- l'estimation du temps restant (ETA) qui se précise après les premiers pas.
+
+Endpoints streaming exposés (`/api/generate-stream`,
+`/api/generate-character-stream`, `/api/tryon-stream`) — payload texte/SSE
+avec ces types d'événements :
+
+| Type      | Contenu                                                       |
+|-----------|---------------------------------------------------------------|
+| `status`  | `{message}` — étape de chargement en cours                    |
+| `ready`   | `{message, total}` — modèle prêt, génération démarre          |
+| `step`    | `{step, total, percent, elapsed, eta}` — un pas de diffusion  |
+| `done`    | `{image_url, seed, elapsed_seconds, ...}` — image prête       |
+| `error`   | `{message}` — exception levée                                 |
+
+Les anciens endpoints synchrones (`/api/generate`, etc.) restent disponibles
+pour des appels API qui ne veulent pas parser le SSE — ils retournent du
+JSON classique en fin de génération.
+
+## Astuces vitesse (Mac MPS)
+
+Apple Silicon est ~3-5× plus lent que NVIDIA pour la diffusion. Pour itérer
+plus vite, dans **Paramètres avancés** du formulaire :
+
+- **Pas (steps)** : passer de 25 à **15-18** divise quasi par 2 le temps
+  pour un visuel d'aperçu. Remonter à 30+ pour la version finale validée.
+- **Résolution** : 768×768 au lieu de 1024×1024 pour explorer ; 1024×1024+
+  pour la version finale.
+- **Verrouillage facial** : à `0.5` au lieu de `0.7` laisse plus de variété
+  visage ; à `0.0` désactivé tu retires l'IP-Adapter (un peu plus rapide).
+- **Premier run lent** : 7 Go de SDXL + 2 Go d'IP-Adapter à télécharger
+  une seule fois. Les générations suivantes sont 10-50× plus rapides.
+
 ## Accéder depuis le téléphone
 
 ### Option A — Réseau local (Wi-Fi commun)

@@ -15,12 +15,15 @@ import json
 import random
 import sys
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
+from queue import Empty, Queue
+from threading import Thread
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -413,3 +416,346 @@ def get_character_file(filename: str):
     if not p.exists():
         raise HTTPException(404)
     return FileResponse(p)
+
+
+# ----------------------------------------------------------------------------
+# Endpoints streaming (Server-Sent Events) — feedback temps réel pour l'UI.
+#
+# Chaque endpoint démarre la génération dans un thread et retourne un flux SSE.
+# Évènements émis :
+#   - status   : message d'avancement texte (chargement modèle, etc.)
+#   - ready    : modèle prêt, génération sur le point de démarrer
+#   - step     : un pas de diffusion terminé (step, total, elapsed, eta)
+#   - done     : image prête (image_url, seed, elapsed_seconds, ...)
+#   - error    : exception levée (message)
+# ----------------------------------------------------------------------------
+
+def _format_sse(event_type: str, **data) -> str:
+    payload = {"type": event_type, **data}
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+def _drain_queue_to_sse(queue: Queue, timeout: float = 1800.0):
+    """Générateur SSE : lit la queue jusqu'à 'done' ou 'error'."""
+    while True:
+        try:
+            event_type, data = queue.get(timeout=timeout)
+        except Empty:
+            yield _format_sse("error", message="Timeout (>30 min sans nouvelle)")
+            return
+        yield _format_sse(event_type, **data)
+        if event_type in ("done", "error"):
+            return
+
+
+def _make_step_callback(queue: Queue, total_steps: int, t_start_ref: dict):
+    """Crée un callback diffusers compatible callback_on_step_end."""
+    def callback(pipe, step_idx: int, timestep, callback_kwargs):
+        step = step_idx + 1
+        elapsed = time.time() - t_start_ref["t0"]
+        rate = elapsed / step if step > 0 else 0
+        eta = rate * (total_steps - step)
+        queue.put(("step", {
+            "step": step,
+            "total": total_steps,
+            "elapsed": round(elapsed, 1),
+            "eta": round(eta, 1),
+            "percent": round(100 * step / total_steps, 1),
+        }))
+        return callback_kwargs
+    return callback
+
+
+@app.post("/api/generate-stream")
+def api_generate_stream(
+    garment: str = Form(...),
+    character_path: Optional[str] = Form(None),
+    model_style: str = Form("athletic"),
+    background: str = Form("studio_white"),
+    pose: str = Form("standing front view, arms relaxed at sides"),
+    width: int = Form(1024),
+    height: int = Form(1024),
+    steps: int = Form(25),
+    cfg: float = Form(7.0),
+    seed: Optional[int] = Form(None),
+    face_scale: float = Form(0.7),
+    no_face_lock: bool = Form(False),
+):
+    queue: Queue = Queue()
+
+    def emit(event_type, **data):
+        queue.put((event_type, data))
+
+    def run():
+        try:
+            character = None
+            if character_path:
+                path = ROOT / character_path
+                if not path.exists():
+                    emit("error", message=f"Character introuvable : {character_path}")
+                    return
+                character = Character.from_json_file(path)
+
+            positive, negative = ProductPrompt(
+                garment=garment,
+                character=character,
+                model_style=model_style,
+                background=background,
+                pose=pose,
+            ).build()
+
+            used_seed = seed
+            if used_seed is None and character is not None and character.seed is not None:
+                used_seed = character.seed
+            if used_seed is None:
+                used_seed = random.randint(0, 2**31 - 1)
+
+            need_load = _pipe_text2img is None
+            if need_load:
+                emit("status", message="Chargement de SDXL base… (premier lancement : "
+                     "téléchargement ~7 Go, peut durer 5-15 min)")
+            pipe = get_text2img_pipe()
+
+            face_ref_image = None
+            if (not no_face_lock) and character is not None and character.portrait_path:
+                portrait = ROOT / character.portrait_path
+                if not portrait.is_absolute() and not portrait.exists():
+                    portrait = Path(character.portrait_path)
+                if portrait.exists():
+                    from ip_adapter_helpers import open_reference_image
+                    if not _face_adapter_loaded:
+                        emit("status", message="Chargement IP-Adapter face… (~2 Go au premier run)")
+                    pipe = ensure_face_adapter(scale=face_scale)
+                    face_ref_image = open_reference_image(portrait)
+
+            generator = _make_torch_generator(used_seed)
+
+            emit("ready", message="Génération en cours…", total=steps,
+                 face_lock=face_ref_image is not None)
+
+            t_ref = {"t0": time.time()}
+            cb = _make_step_callback(queue, steps, t_ref)
+
+            pipe_kwargs = dict(
+                prompt=positive,
+                negative_prompt=negative,
+                width=width,
+                height=height,
+                num_inference_steps=steps,
+                guidance_scale=cfg,
+                generator=generator,
+                callback_on_step_end=cb,
+            )
+            if face_ref_image is not None:
+                pipe_kwargs["ip_adapter_image"] = face_ref_image
+
+            image = pipe(**pipe_kwargs).images[0]
+            elapsed = time.time() - t_ref["t0"]
+
+            name = _timestamp_name("gen")
+            out_path = OUTPUTS_DIR / name
+            image.save(out_path)
+            print(f"[serveur] Image générée en {elapsed:.1f}s → {out_path}", flush=True)
+
+            emit("done",
+                 image_url=f"/outputs/{name}",
+                 seed=used_seed,
+                 elapsed_seconds=round(elapsed, 1),
+                 face_lock=face_ref_image is not None,
+                 prompt=positive)
+        except Exception as e:
+            traceback.print_exc()
+            emit("error", message=f"{type(e).__name__}: {e}")
+
+    Thread(target=run, daemon=True).start()
+    return StreamingResponse(_drain_queue_to_sse(queue), media_type="text/event-stream")
+
+
+@app.post("/api/generate-character-stream")
+def api_generate_character_stream(
+    profile_path: str = Form(...),
+    reroll: bool = Form(False),
+    seed: Optional[int] = Form(None),
+    width: int = Form(896),
+    height: int = Form(1152),
+    steps: int = Form(28),
+    cfg: float = Form(7.0),
+):
+    queue: Queue = Queue()
+
+    def emit(event_type, **data):
+        queue.put((event_type, data))
+
+    def run():
+        try:
+            path = ROOT / profile_path
+            if not path.exists():
+                emit("error", message=f"Profil introuvable : {profile_path}")
+                return
+
+            character = Character.from_json_file(path)
+
+            if seed is not None:
+                used_seed = seed
+            elif reroll or character.seed is None:
+                used_seed = random.randint(0, 2**31 - 1)
+            else:
+                used_seed = character.seed
+
+            need_load = _pipe_text2img is None
+            if need_load:
+                emit("status", message="Chargement de SDXL base… (premier lancement : "
+                     "téléchargement ~7 Go, peut durer 5-15 min)")
+            pipe = get_text2img_pipe()
+
+            generator = _make_torch_generator(used_seed)
+
+            emit("ready", message=f"Portrait de {character.name} en cours…", total=steps)
+
+            t_ref = {"t0": time.time()}
+            cb = _make_step_callback(queue, steps, t_ref)
+
+            image = pipe(
+                prompt=character.build_portrait_prompt(),
+                negative_prompt=DEFAULT_NEGATIVE,
+                width=width,
+                height=height,
+                num_inference_steps=steps,
+                guidance_scale=cfg,
+                generator=generator,
+                callback_on_step_end=cb,
+            ).images[0]
+            elapsed = time.time() - t_ref["t0"]
+
+            out_name = f"{path.stem}.png"
+            out_path = CHARACTERS_DIR / out_name
+            image.save(out_path)
+
+            if character.seed != used_seed or character.portrait_path != str(out_path):
+                character.seed = used_seed
+                character.portrait_path = str(out_path)
+                character.to_json(path)
+
+            emit("done",
+                 image_url=f"/characters/{out_name}",
+                 seed=used_seed,
+                 elapsed_seconds=round(elapsed, 1),
+                 portrait_path=str(out_path.relative_to(ROOT)))
+        except Exception as e:
+            traceback.print_exc()
+            emit("error", message=f"{type(e).__name__}: {e}")
+
+    Thread(target=run, daemon=True).start()
+    return StreamingResponse(_drain_queue_to_sse(queue), media_type="text/event-stream")
+
+
+@app.post("/api/tryon-stream")
+async def api_tryon_stream(
+    person: UploadFile = File(...),
+    garment: UploadFile = File(...),
+    mask: Optional[UploadFile] = File(None),
+    auto_mask: str = Form("none"),
+    prompt: str = Form(...),
+    garment_scale: float = Form(0.85),
+    strength: float = Form(0.95),
+    steps: int = Form(28),
+    cfg: float = Form(7.5),
+    seed: Optional[int] = Form(None),
+):
+    # Les UploadFile doivent être lus dans la coroutine (avant le thread).
+    person_bytes = await person.read()
+    garment_bytes = await garment.read()
+    mask_bytes = await mask.read() if mask is not None else None
+
+    queue: Queue = Queue()
+
+    def emit(event_type, **data):
+        queue.put((event_type, data))
+
+    def run():
+        try:
+            from PIL import Image, ImageDraw, ImageFilter
+            from ip_adapter_helpers import open_reference_image
+
+            upload_dir = OUTPUTS_DIR / "uploads"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            person_path = upload_dir / _timestamp_name("person")
+            garment_path = upload_dir / _timestamp_name("garment", "jpg")
+            person_path.write_bytes(person_bytes)
+            garment_path.write_bytes(garment_bytes)
+
+            person_image = Image.open(person_path).convert("RGB")
+            w, h = person_image.size
+            garment_image = open_reference_image(garment_path)
+
+            if mask_bytes is not None:
+                mask_path = upload_dir / _timestamp_name("mask")
+                mask_path.write_bytes(mask_bytes)
+                mask_image = Image.open(mask_path).convert("L")
+                if mask_image.size != (w, h):
+                    mask_image = mask_image.resize((w, h), Image.NEAREST)
+            elif auto_mask in ("hip", "torso"):
+                mask_image = Image.new("L", (w, h), 0)
+                draw = ImageDraw.Draw(mask_image)
+                if auto_mask == "hip":
+                    x1, y1, x2, y2 = int(0.20 * w), int(0.50 * h), int(0.80 * w), int(0.78 * h)
+                else:
+                    x1, y1, x2, y2 = int(0.18 * w), int(0.18 * h), int(0.82 * w), int(0.55 * h)
+                draw.rectangle([x1, y1, x2, y2], fill=255)
+                mask_image = mask_image.filter(ImageFilter.GaussianBlur(radius=10))
+            else:
+                emit("error", message="Fournir un masque OU auto_mask=hip|torso")
+                return
+
+            need_load = _pipe_inpaint is None
+            if need_load:
+                emit("status", message="Chargement SDXL Inpainting… (premier lancement : "
+                     "téléchargement ~7 Go, peut durer 5-15 min)")
+            if not _general_adapter_loaded_on_inpaint:
+                emit("status", message="Chargement IP-Adapter général…")
+            pipe = get_inpaint_pipe_with_general_adapter(scale=garment_scale)
+
+            used_seed = seed if seed is not None else random.randint(0, 2**31 - 1)
+            generator = _make_torch_generator(used_seed)
+
+            full_prompt = (
+                f"{prompt}, high detail fabric texture, realistic clothing, "
+                "natural skin tone, seamless integration, photorealistic, 8k, sharp focus"
+            )
+
+            emit("ready", message="Essayage en cours…", total=steps)
+
+            t_ref = {"t0": time.time()}
+            cb = _make_step_callback(queue, steps, t_ref)
+
+            image = pipe(
+                prompt=full_prompt,
+                negative_prompt=DEFAULT_NEGATIVE,
+                image=person_image,
+                mask_image=mask_image,
+                ip_adapter_image=garment_image,
+                width=w,
+                height=h,
+                num_inference_steps=steps,
+                guidance_scale=cfg,
+                strength=strength,
+                generator=generator,
+                callback_on_step_end=cb,
+            ).images[0]
+            elapsed = time.time() - t_ref["t0"]
+
+            name = _timestamp_name("tryon")
+            out_path = OUTPUTS_DIR / name
+            image.save(out_path)
+
+            emit("done",
+                 image_url=f"/outputs/{name}",
+                 seed=used_seed,
+                 elapsed_seconds=round(elapsed, 1))
+        except Exception as e:
+            traceback.print_exc()
+            emit("error", message=f"{type(e).__name__}: {e}")
+
+    Thread(target=run, daemon=True).start()
+    return StreamingResponse(_drain_queue_to_sse(queue), media_type="text/event-stream")
