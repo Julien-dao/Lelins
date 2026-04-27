@@ -50,28 +50,63 @@ from prompts import Character, ProductPrompt, DEFAULT_NEGATIVE  # noqa: E402
 # ---- Cache des pipelines (chargement paresseux) ----
 
 _pipe_text2img = None
+_pipe_text2img_mode = None  # "standard" (SDXL base) | "fast" (SDXL Turbo)
 _pipe_inpaint = None
 _face_adapter_loaded = False
 _general_adapter_loaded_on_inpaint = False
 
 
-def get_text2img_pipe():
-    """Charge SDXL text-to-image au premier usage, puis le réutilise."""
-    global _pipe_text2img
+def _free_memory():
+    """Libère la mémoire GPU/MPS après un déchargement de pipeline."""
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache"):
+            torch.mps.empty_cache()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
+def get_text2img_pipe(mode: str = "standard"):
+    """Charge SDXL text-to-image au premier usage, ou bascule de mode si besoin.
+
+    mode='standard' → SDXL base (qualité standard, 20-30 pas)
+    mode='fast'     → SDXL Turbo (4 pas, cfg=0, ~3-5× plus rapide sur Mac MPS)
+
+    Sur 8 Go de RAM, garder les deux modèles en mémoire est exclu : on
+    décharge l'ancien avant de charger le nouveau (lent au moment du switch).
+    """
+    global _pipe_text2img, _pipe_text2img_mode, _face_adapter_loaded
+
+    if _pipe_text2img is not None and _pipe_text2img_mode != mode:
+        print(f"[serveur] Bascule mode {_pipe_text2img_mode} → {mode}, "
+              f"libération RAM…", flush=True)
+        del _pipe_text2img
+        _pipe_text2img = None
+        _face_adapter_loaded = False  # adapter à recharger avec le nouveau pipe
+        _free_memory()
+
     if _pipe_text2img is None:
-        from generate import DEFAULT_MODEL_ID, build_pipeline, detect_device
+        from generate import (DEFAULT_MODEL_ID, SDXL_TURBO_MODEL_ID,
+                              build_pipeline, detect_device)
         device, dtype = detect_device()
-        print(f"[serveur] Chargement SDXL base sur {device}…", flush=True)
+        model_id = SDXL_TURBO_MODEL_ID if mode == "fast" else DEFAULT_MODEL_ID
+        label = "SDXL Turbo (mode rapide)" if mode == "fast" else "SDXL base"
+        print(f"[serveur] Chargement {label} sur {device}…", flush=True)
         t0 = time.time()
-        _pipe_text2img = build_pipeline(DEFAULT_MODEL_ID, device, dtype)
-        print(f"[serveur] SDXL base prêt en {time.time() - t0:.1f}s.", flush=True)
+        _pipe_text2img = build_pipeline(model_id, device, dtype)
+        _pipe_text2img_mode = mode
+        print(f"[serveur] {label} prêt en {time.time() - t0:.1f}s.", flush=True)
     return _pipe_text2img
 
 
-def ensure_face_adapter(scale: float = 0.7):
+def ensure_face_adapter(scale: float = 0.7, mode: str = "standard"):
     """Charge l'IP-Adapter face sur le pipeline text2img si pas déjà fait."""
     global _face_adapter_loaded
-    pipe = get_text2img_pipe()
+    pipe = get_text2img_pipe(mode=mode)
     if not _face_adapter_loaded:
         from ip_adapter_helpers import load_face_adapter
         print("[serveur] Chargement IP-Adapter face…", flush=True)
@@ -480,8 +515,14 @@ def api_generate_stream(
     seed: Optional[int] = Form(None),
     face_scale: float = Form(0.7),
     no_face_lock: bool = Form(False),
+    mode: str = Form("standard"),  # "standard" | "fast"
 ):
     queue: Queue = Queue()
+
+    # En mode rapide (SDXL Turbo), on impose les paramètres recommandés.
+    if mode == "fast":
+        steps = 4
+        cfg = 0.0
 
     def emit(event_type, **data):
         queue.put((event_type, data))
@@ -510,11 +551,15 @@ def api_generate_stream(
             if used_seed is None:
                 used_seed = random.randint(0, 2**31 - 1)
 
-            need_load = _pipe_text2img is None
+            need_load = _pipe_text2img is None or _pipe_text2img_mode != mode
             if need_load:
-                emit("status", message="Chargement de SDXL base… (premier lancement : "
-                     "téléchargement ~7 Go, peut durer 5-15 min)")
-            pipe = get_text2img_pipe()
+                if mode == "fast":
+                    emit("status", message="Chargement de SDXL Turbo (mode rapide)… "
+                         "(premier lancement : téléchargement ~7 Go, peut durer 5-15 min)")
+                else:
+                    emit("status", message="Chargement de SDXL base… (premier lancement : "
+                         "téléchargement ~7 Go, peut durer 5-15 min)")
+            pipe = get_text2img_pipe(mode=mode)
 
             face_ref_image = None
             if (not no_face_lock) and character is not None and character.portrait_path:
@@ -525,20 +570,20 @@ def api_generate_stream(
                     from ip_adapter_helpers import open_reference_image
                     if not _face_adapter_loaded:
                         emit("status", message="Chargement IP-Adapter face… (~2 Go au premier run)")
-                    pipe = ensure_face_adapter(scale=face_scale)
+                    pipe = ensure_face_adapter(scale=face_scale, mode=mode)
                     face_ref_image = open_reference_image(portrait)
 
             generator = _make_torch_generator(used_seed)
 
             emit("ready", message="Génération en cours…", total=steps,
-                 face_lock=face_ref_image is not None)
+                 face_lock=face_ref_image is not None, mode=mode)
 
             t_ref = {"t0": time.time()}
             cb = _make_step_callback(queue, steps, t_ref)
 
             pipe_kwargs = dict(
                 prompt=positive,
-                negative_prompt=negative,
+                negative_prompt=negative if mode != "fast" else None,
                 width=width,
                 height=height,
                 num_inference_steps=steps,
@@ -562,6 +607,7 @@ def api_generate_stream(
                  seed=used_seed,
                  elapsed_seconds=round(elapsed, 1),
                  face_lock=face_ref_image is not None,
+                 mode=mode,
                  prompt=positive)
         except Exception as e:
             traceback.print_exc()
@@ -580,8 +626,13 @@ def api_generate_character_stream(
     height: int = Form(1152),
     steps: int = Form(28),
     cfg: float = Form(7.0),
+    mode: str = Form("standard"),
 ):
     queue: Queue = Queue()
+
+    if mode == "fast":
+        steps = 4
+        cfg = 0.0
 
     def emit(event_type, **data):
         queue.put((event_type, data))
@@ -602,22 +653,26 @@ def api_generate_character_stream(
             else:
                 used_seed = character.seed
 
-            need_load = _pipe_text2img is None
+            need_load = _pipe_text2img is None or _pipe_text2img_mode != mode
             if need_load:
-                emit("status", message="Chargement de SDXL base… (premier lancement : "
-                     "téléchargement ~7 Go, peut durer 5-15 min)")
-            pipe = get_text2img_pipe()
+                if mode == "fast":
+                    emit("status", message="Chargement de SDXL Turbo (mode rapide)… "
+                         "(premier lancement : téléchargement ~7 Go, peut durer 5-15 min)")
+                else:
+                    emit("status", message="Chargement de SDXL base… (premier lancement : "
+                         "téléchargement ~7 Go, peut durer 5-15 min)")
+            pipe = get_text2img_pipe(mode=mode)
 
             generator = _make_torch_generator(used_seed)
 
-            emit("ready", message=f"Portrait de {character.name} en cours…", total=steps)
+            emit("ready", message=f"Portrait de {character.name} en cours…", total=steps, mode=mode)
 
             t_ref = {"t0": time.time()}
             cb = _make_step_callback(queue, steps, t_ref)
 
             image = pipe(
                 prompt=character.build_portrait_prompt(),
-                negative_prompt=DEFAULT_NEGATIVE,
+                negative_prompt=DEFAULT_NEGATIVE if mode != "fast" else None,
                 width=width,
                 height=height,
                 num_inference_steps=steps,

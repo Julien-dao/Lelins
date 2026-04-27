@@ -72,7 +72,10 @@ def build_inpaint_pipeline(model_id: str, device: str, dtype):
     pipe = pipe.to(device)
 
     if device == "mps":
+        # Optimisations mémoire critiques sur Apple Silicon, surtout 8 Go.
         pipe.enable_attention_slicing()
+        pipe.enable_vae_slicing()
+        pipe.enable_vae_tiling()
     elif device == "cuda":
         try:
             pipe.enable_xformers_memory_efficient_attention()
@@ -80,6 +83,8 @@ def build_inpaint_pipeline(model_id: str, device: str, dtype):
             pipe.enable_attention_slicing()
     else:
         pipe.enable_attention_slicing()
+        pipe.enable_vae_slicing()
+        pipe.enable_vae_tiling()
 
     pipe.set_progress_bar_config(disable=False)
     return pipe

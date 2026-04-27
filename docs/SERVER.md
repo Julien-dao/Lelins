@@ -89,19 +89,69 @@ Les anciens endpoints synchrones (`/api/generate`, etc.) restent disponibles
 pour des appels API qui ne veulent pas parser le SSE — ils retournent du
 JSON classique en fin de génération.
 
+## ⚡ Mode rapide (SDXL Turbo)
+
+Pour itérer rapidement — particulièrement utile sur **Mac M1 8 Go** ou tout
+matériel modeste — l'interface propose un toggle **« ⚡ Mode rapide »**
+dans les onglets Visuel produit et Portrait mannequin.
+
+Quand activé :
+
+- Bascule sur **SDXL Turbo** (modèle dérivé optimisé pour très peu de pas)
+- Force `steps = 4` et `guidance_scale = 0` (paramètres optimaux Turbo)
+- Génère **3-5× plus vite** qu'en mode standard
+- Qualité légèrement inférieure (parfait pour l'exploration, moins pour le
+  rendu final destiné au catalogue)
+
+Indicatif sur Mac MPS, 768×768 :
+
+| Matériel        | Mode standard (25 pas) | Mode rapide (4 pas) |
+|-----------------|-----------------------|---------------------|
+| M1 8 Go         | ~75 s                 | **~20 s**           |
+| M2 16 Go        | ~45 s                 | **~12 s**           |
+| M3 Max          | ~20 s                 | **~5 s**            |
+
+### ⚠️ Bascule entre les modes (important sur 8 Go RAM)
+
+Activer le mode rapide pour la première fois déclenche le **téléchargement
+de SDXL Turbo** (~7 Go, identique à SDXL base). Une seule fois.
+
+Sur **Mac 8 Go**, garder les deux modèles en RAM est impossible : à chaque
+bascule entre standard et rapide, le serveur **décharge l'ancien modèle**
+(rapide) puis recharge le nouveau (~30-60 s). C'est documenté par un message
+clair dans la barre de progression. Reste sur un seul mode pour une session
+de travail efficace.
+
+Sur **Mac 16 Go+**, la bascule est aussi opérée mais on pourrait à terme
+garder les deux en cache. Pour l'instant on décharge systématiquement
+(comportement uniforme).
+
 ## Astuces vitesse (Mac MPS)
 
 Apple Silicon est ~3-5× plus lent que NVIDIA pour la diffusion. Pour itérer
-plus vite, dans **Paramètres avancés** du formulaire :
+plus vite :
 
-- **Pas (steps)** : passer de 25 à **15-18** divise quasi par 2 le temps
-  pour un visuel d'aperçu. Remonter à 30+ pour la version finale validée.
+- **Mode rapide** (cf. ci-dessus) — le levier le plus efficace.
+- **Pas (steps)** : en mode standard, passer de 25 à **15-18** divise quasi
+  par 2 le temps pour un visuel d'aperçu. Remonter à 30+ pour la version
+  finale validée.
 - **Résolution** : 768×768 au lieu de 1024×1024 pour explorer ; 1024×1024+
   pour la version finale.
 - **Verrouillage facial** : à `0.5` au lieu de `0.7` laisse plus de variété
-  visage ; à `0.0` désactivé tu retires l'IP-Adapter (un peu plus rapide).
+  visage ; désactivé (case « Désactiver le verrouillage du visage ») tu
+  retires l'IP-Adapter (un peu plus rapide, ~10 % de RAM en moins).
 - **Premier run lent** : 7 Go de SDXL + 2 Go d'IP-Adapter à télécharger
   une seule fois. Les générations suivantes sont 10-50× plus rapides.
+
+### Spécifique Mac M1 / M2 8 Go
+
+- Lance **uniquement Safari + Terminal** (quitte Chrome, Slack, Photoshop,
+  Spotify avant de lancer le serveur).
+- **Préfère le mode rapide** par défaut, switch vers standard seulement pour
+  le rendu final.
+- Garde la résolution à **512×512 ou 768×768**, évite 1024×1024.
+- N'utilise pas le try-on en parallèle d'une génération en cours (deux
+  modèles SDXL en mémoire = swap garanti = lenteur extrême).
 
 ## Accéder depuis le téléphone
 

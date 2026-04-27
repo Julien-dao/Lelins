@@ -205,6 +205,48 @@ p.hint {
   border-radius: 4px;
 }
 
+/* Toggle « Mode rapide » bien visible. */
+.fast-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg,
+    rgba(250, 204, 21, 0.12),
+    rgba(96, 165, 250, 0.10));
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: normal;
+  margin-top: 4px;
+}
+
+.fast-toggle input { margin: 0; }
+
+.fast-toggle .fast-badge {
+  font-weight: 600;
+  color: #b45309;
+  font-size: 14px;
+}
+
+.fast-toggle .fast-hint {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .fast-toggle .fast-badge { color: #facc15; }
+}
+
+.fast-toggle:has(input:checked) {
+  background: linear-gradient(135deg,
+    rgba(250, 204, 21, 0.22),
+    rgba(96, 165, 250, 0.18));
+  border-color: rgba(250, 204, 21, 0.7);
+}
+
 button.primary {
   font: inherit;
   font-size: 16px;
