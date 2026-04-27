@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lelins — Générateur d'images</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Lelins</h1>
+  <p class="subtitle">Générateur d'images local · matériel détecté&nbsp;: <strong>{{ device }}</strong></p>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="produit">Visuel produit</button>
+  <button class="tab" data-tab="portrait">Portrait mannequin</button>
+  <button class="tab" data-tab="tryon">Essayage virtuel</button>
+</nav>
+
+<main>
+
+  <!-- ============== Visuel produit ============== -->
+  <section class="panel active" data-panel="produit">
+    <form id="form-produit">
+      <label>
+        Mannequin
+        <select name="character_path">
+          <option value="">— Aucun (preset simple) —</option>
+          {% for c in characters %}
+            <option value="{{ c.path }}">{{ c.name }}{% if c.has_portrait %} · 🔒 visage{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>
+        Vêtement
+        <input type="text" name="garment" required
+               placeholder="black cotton boxer briefs"
+               value="black cotton boxer briefs">
+      </label>
+
+      <div class="row">
+        <label>
+          Décor
+          <select name="background">
+            <option value="studio_white">Studio blanc</option>
+            <option value="studio_grey">Studio gris</option>
+            <option value="studio_beige">Studio beige</option>
+            <option value="loft">Loft (lumière naturelle)</option>
+            <option value="outdoor_beach">Plage</option>
+            <option value="urban">Urbain (toit)</option>
+          </select>
+        </label>
+
+        <label>
+          Preset (si pas de mannequin)
+          <select name="model_style">
+            <option value="athletic">Athlétique</option>
+            <option value="slim">Mince</option>
+            <option value="mature">Mature</option>
+            <option value="casual">Décontracté</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Pose
+        <input type="text" name="pose"
+               value="standing front view, arms relaxed at sides">
+      </label>
+
+      <details>
+        <summary>Paramètres avancés</summary>
+        <div class="row">
+          <label>Largeur <input type="number" name="width" value="1024" min="512" max="1536" step="64"></label>
+          <label>Hauteur <input type="number" name="height" value="1024" min="512" max="1536" step="64"></label>
+        </div>
+        <div class="row">
+          <label>Pas (steps) <input type="number" name="steps" value="30" min="15" max="60"></label>
+          <label>CFG <input type="number" name="cfg" value="7.0" step="0.5" min="3" max="12"></label>
+        </div>
+        <div class="row">
+          <label>Seed <input type="number" name="seed" placeholder="auto"></label>
+          <label>Force visage <input type="range" name="face_scale" min="0.4" max="1.0" step="0.05" value="0.7" oninput="this.nextElementSibling.textContent=this.value"><span>0.7</span></label>
+        </div>
+        <label class="checkbox">
+          <input type="checkbox" name="no_face_lock"> Désactiver le verrouillage du visage
+        </label>
+      </details>
+
+      <button class="primary" type="submit">Générer</button>
+    </form>
+
+    <div class="result" data-result="produit"></div>
+  </section>
+
+  <!-- ============== Portrait mannequin ============== -->
+  <section class="panel" data-panel="portrait">
+    <form id="form-portrait">
+      <label>
+        Profil mannequin
+        <select name="profile_path" required>
+          {% for c in characters %}
+            <option value="{{ c.path }}">{{ c.name }}</option>
+          {% else %}
+            <option value="">— Aucun profil dans characters/ —</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" name="reroll"> Tirer une nouvelle seed (nouveau visage)
+      </label>
+
+      <details>
+        <summary>Paramètres avancés</summary>
+        <div class="row">
+          <label>Largeur <input type="number" name="width" value="896" min="512" max="1536" step="64"></label>
+          <label>Hauteur <input type="number" name="height" value="1152" min="512" max="1536" step="64"></label>
+        </div>
+        <div class="row">
+          <label>Pas (steps) <input type="number" name="steps" value="35" min="15" max="60"></label>
+          <label>CFG <input type="number" name="cfg" value="7.0" step="0.5" min="3" max="12"></label>
+        </div>
+        <label>Seed (force) <input type="number" name="seed" placeholder="auto"></label>
+      </details>
+
+      <button class="primary" type="submit">Générer le portrait</button>
+    </form>
+
+    <div class="result" data-result="portrait"></div>
+  </section>
+
+  <!-- ============== Essayage virtuel ============== -->
+  <section class="panel" data-panel="tryon">
+    <form id="form-tryon">
+      <label>
+        Image du mannequin (person)
+        <input type="file" name="person" accept="image/*" required>
+      </label>
+
+      <label>
+        Photo du vêtement (packshot)
+        <input type="file" name="garment" accept="image/*" required>
+      </label>
+
+      <label>
+        Masque (optionnel)
+        <input type="file" name="mask" accept="image/*">
+      </label>
+
+      <label>
+        Si pas de masque, génération auto&nbsp;:
+        <select name="auto_mask">
+          <option value="hip">Zone sous-vêtement (hanches)</option>
+          <option value="torso">Zone torse (haut)</option>
+          <option value="none">Aucune</option>
+        </select>
+      </label>
+
+      <label>
+        Description du vêtement
+        <input type="text" name="prompt" required
+               placeholder="black cotton boxer briefs, branded elastic waistband"
+               value="black cotton boxer briefs, branded elastic waistband">
+      </label>
+
+      <details>
+        <summary>Paramètres avancés</summary>
+        <div class="row">
+          <label>Force vêtement <input type="range" name="garment_scale" min="0.5" max="1.0" step="0.05" value="0.85" oninput="this.nextElementSibling.textContent=this.value"><span>0.85</span></label>
+          <label>Force inpaint <input type="range" name="strength" min="0.7" max="1.0" step="0.05" value="0.95" oninput="this.nextElementSibling.textContent=this.value"><span>0.95</span></label>
+        </div>
+        <div class="row">
+          <label>Pas (steps) <input type="number" name="steps" value="35" min="15" max="60"></label>
+          <label>CFG <input type="number" name="cfg" value="7.5" step="0.5" min="3" max="12"></label>
+        </div>
+        <label>Seed <input type="number" name="seed" placeholder="auto"></label>
+      </details>
+
+      <button class="primary" type="submit">Lancer l'essayage</button>
+    </form>
+
+    <div class="result" data-result="tryon"></div>
+  </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

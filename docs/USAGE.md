@@ -1,5 +1,12 @@
 # Utilisation du générateur Lelins
 
+Deux façons d'utiliser le générateur :
+
+- **Interface web (recommandée)** : `python scripts/serve.py` puis ouvrir
+  http://127.0.0.1:8000. Voir [`SERVER.md`](SERVER.md). Trois onglets : visuel
+  produit, portrait mannequin, essayage virtuel.
+- **CLI** : les commandes `python scripts/<script>.py …` documentées ci-dessous.
+
 Cinq CLI principaux, **totalement interopérables** :
 
 | Script                       | Rôle                                                          |

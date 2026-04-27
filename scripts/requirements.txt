@@ -26,3 +26,9 @@ Pillow>=10.0.0
 
 # Divers
 tqdm>=4.66.0
+
+# Serveur web (scripts/serve.py)
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+jinja2>=3.1.0

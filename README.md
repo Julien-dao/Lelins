@@ -36,27 +36,35 @@ Plusieurs mannequins peuvent coexister (ligne principale, ligne mature, etc.).
 ### Démarrage rapide
 
 1. Lire [`docs/INSTALL.md`](docs/INSTALL.md) et installer les dépendances.
-2. Lire [`docs/USAGE.md`](docs/USAGE.md) pour les commandes principales.
-3. Pour l'essayage virtuel, lire [`docs/TRYON.md`](docs/TRYON.md).
-4. Pour l'interface graphique, lire [`comfyui/SETUP.md`](comfyui/SETUP.md).
-5. Pour les profils mannequin, lire [`characters/README.md`](characters/README.md).
+2. **Le plus simple** : lancer le serveur et tout faire dans le navigateur :
+   ```bash
+   python scripts/serve.py
+   # ouvrir http://127.0.0.1:8000
+   ```
+   Voir [`docs/SERVER.md`](docs/SERVER.md) (accès depuis le téléphone aussi).
+3. Pour la ligne de commande, voir [`docs/USAGE.md`](docs/USAGE.md).
+4. Pour l'essayage virtuel, voir [`docs/TRYON.md`](docs/TRYON.md).
+5. Pour l'interface ComfyUI (alternative avancée), voir [`comfyui/SETUP.md`](comfyui/SETUP.md).
+6. Pour les profils mannequin, voir [`characters/README.md`](characters/README.md).
 
 ### Structure
 
 ```
 Lelins/
 ├── scripts/
-│   ├── generate.py            Visuel produit (mannequin + vêtement + décor)
-│   ├── generate_character.py  Portrait d'un Character
-│   ├── batch_generate.py      Catalogue complet en un lot
-│   ├── tryon.py               Essayage virtuel (vêtement réel sur mannequin)
+│   ├── serve.py               Lancement du serveur web (FastAPI)
+│   ├── generate.py            Visuel produit (CLI)
+│   ├── generate_character.py  Portrait d'un Character (CLI)
+│   ├── batch_generate.py      Catalogue complet en un lot (CLI)
+│   ├── tryon.py               Essayage virtuel (CLI)
 │   ├── make_mask.py           Création de masques pour tryon.py
 │   ├── ip_adapter_helpers.py  Chargement IP-Adapter face/general
 │   └── prompts/
 │       ├── character.py       Dataclass Character (40 paramètres)
 │       └── templates.py       Composition Character + garment + scène
+├── server/                    Serveur web FastAPI + UI mobile-friendly
 ├── characters/                Profils mannequin + portraits de référence
 ├── comfyui/                   Setup ComfyUI + workflow prêt à l'emploi
-├── docs/                      INSTALL.md, USAGE.md, TRYON.md
+├── docs/                      INSTALL.md, USAGE.md, SERVER.md, TRYON.md
 └── outputs/                   Images générées (gitignored)
 ```

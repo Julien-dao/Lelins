@@ -1,0 +1,271 @@
+:root {
+  --bg: #fafafa;
+  --surface: #fff;
+  --border: #e5e5e5;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --primary: #111;
+  --primary-text: #fff;
+  --accent: #2563eb;
+  --error: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0f10;
+    --surface: #1a1a1c;
+    --border: #2a2a2e;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --primary: #f4f4f5;
+    --primary-text: #0f0f10;
+    --accent: #60a5fa;
+    --error: #f87171;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+header {
+  padding: 20px 16px 8px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+nav.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 16px 12px 0;
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-x: auto;
+}
+
+.tab {
+  flex: 1 1 auto;
+  min-width: 100px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+}
+
+main {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 12px 60px;
+}
+
+.panel {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+  padding: 20px 16px;
+}
+
+.panel.active {
+  display: block;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-weight: normal;
+  color: var(--muted);
+}
+
+label.checkbox input {
+  margin: 0;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  font: inherit;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="file"] {
+  font: inherit;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  width: 100%;
+}
+
+input[type="range"] {
+  width: 100%;
+  margin-top: 4px;
+}
+
+input:focus, select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .row { grid-template-columns: 1fr; }
+}
+
+details {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+details > summary {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  outline: none;
+}
+
+details[open] > summary {
+  margin-bottom: 12px;
+}
+
+details > div, details > label {
+  margin-top: 10px;
+}
+
+button.primary {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 16px;
+  background: var(--primary);
+  color: var(--primary-text);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+button.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.result {
+  margin-top: 20px;
+}
+
+.result img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.result .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.result .meta a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.result .status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.result .status.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
