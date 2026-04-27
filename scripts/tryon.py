@@ -61,14 +61,24 @@ def detect_device() -> tuple[str, "torch.dtype"]:
 
 def build_inpaint_pipeline(model_id: str, device: str, dtype):
     """Charge le pipeline SDXL Inpainting et applique les optimisations."""
-    from diffusers import StableDiffusionXLInpaintPipeline
+    from diffusers import AutoencoderKL, StableDiffusionXLInpaintPipeline
 
-    pipe = StableDiffusionXLInpaintPipeline.from_pretrained(
-        model_id,
+    is_fp16 = dtype.__repr__() == "torch.float16"
+
+    kwargs = dict(
         torch_dtype=dtype,
         use_safetensors=True,
-        variant="fp16" if dtype.__repr__() == "torch.float16" else None,
+        variant="fp16" if is_fp16 else None,
     )
+
+    # Sur Mac MPS en fp16, le VAE par défaut overflow et produit des images
+    # noires. On utilise le VAE corrigé (compatible SDXL et SDXL Inpainting).
+    if device == "mps" and is_fp16:
+        kwargs["vae"] = AutoencoderKL.from_pretrained(
+            "madebyollin/sdxl-vae-fp16-fix", torch_dtype=dtype,
+        )
+
+    pipe = StableDiffusionXLInpaintPipeline.from_pretrained(model_id, **kwargs)
     pipe = pipe.to(device)
 
     if device == "mps":

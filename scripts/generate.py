@@ -45,6 +45,10 @@ from prompts import Character, ProductPrompt, simple_prompt  # noqa: E402
 DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
 SDXL_TURBO_MODEL_ID = "stabilityai/sdxl-turbo"
 
+# VAE corrigé pour éviter l'overflow fp16 sur Mac MPS qui produit des
+# images entièrement noires. Voir https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
+SDXL_VAE_FP16_FIX = "madebyollin/sdxl-vae-fp16-fix"
+
 
 def detect_device() -> tuple[str, "torch.dtype"]:
     """Retourne (device, dtype) adapté à la machine."""
@@ -59,14 +63,24 @@ def detect_device() -> tuple[str, "torch.dtype"]:
 
 def build_pipeline(model_id: str, device: str, dtype):
     """Charge le pipeline SDXL et applique les optimisations adaptées."""
-    from diffusers import StableDiffusionXLPipeline
+    from diffusers import AutoencoderKL, StableDiffusionXLPipeline
 
-    pipe = StableDiffusionXLPipeline.from_pretrained(
-        model_id,
+    is_fp16 = dtype.__repr__() == "torch.float16"
+
+    kwargs = dict(
         torch_dtype=dtype,
         use_safetensors=True,
-        variant="fp16" if dtype.__repr__() == "torch.float16" else None,
+        variant="fp16" if is_fp16 else None,
     )
+
+    # Sur Mac MPS en fp16, le VAE par défaut souffre d'un overflow numérique
+    # qui produit des images noires. On le remplace par le VAE corrigé.
+    if device == "mps" and is_fp16:
+        kwargs["vae"] = AutoencoderKL.from_pretrained(
+            SDXL_VAE_FP16_FIX, torch_dtype=dtype,
+        )
+
+    pipe = StableDiffusionXLPipeline.from_pretrained(model_id, **kwargs)
     pipe = pipe.to(device)
 
     if device == "mps":

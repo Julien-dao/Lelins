@@ -171,6 +171,25 @@ modèle inpainting) peuvent dépasser la limite mémoire MPS d'Apple.
    Tu vois le message dans la barre de progression :
    « Mémoire insuffisante à 1024×1024, on réessaie à 512×512… »
 
+## Image entièrement noire ?
+
+**Bug connu** sur Mac MPS : le VAE de SDXL (le décodeur qui produit l'image
+finale à partir des latents) souffre d'un overflow numérique en fp16 sur
+Apple Silicon. Résultat : tous les pixels saturent à 0 → image noire.
+
+**Le serveur charge automatiquement le VAE corrigé** (`madebyollin/sdxl-vae-fp16-fix`)
+quand le matériel détecté est `mps` et que la précision est fp16. C'est un
+téléchargement supplémentaire d'environ 330 Mo au premier lancement, mis en
+cache ensuite.
+
+Si tu vois encore des images noires :
+- Vérifier que ton `pip install` a bien réussi (`diffusers >= 0.29`).
+- Vérifier les logs du serveur — un message du genre `Cannot find variant
+  fp16` signalerait que le VAE corrigé n'a pas pu être téléchargé.
+- En dernier recours, force le VAE en fp32 manuellement (édit `generate.py`,
+  remplacer `dtype` par `torch.float32`). Plus lent et plus de RAM mais
+  numériquement stable.
+
 ### Si l'OOM persiste à 512×512
 
 C'est rare mais possible. Solutions, par ordre :
