@@ -70,10 +70,14 @@ function renderProgress(target, initialMessage) {
   };
 }
 
-function showResult(target, data) {
+function showResult(target, data, warning) {
   const el = document.querySelector(`.result[data-result="${target}"]`);
   const url = data.image_url + '?t=' + Date.now();
+  const warningHtml = warning
+    ? `<div class="status error" style="margin-bottom:12px">${warning}</div>`
+    : '';
   el.innerHTML = `
+    ${warningHtml}
     <img src="${url}" alt="résultat">
     <div class="meta">
       <span>Seed&nbsp;: <strong>${data.seed}</strong></span>
@@ -88,7 +92,7 @@ function showError(target, message) {
   el.innerHTML = `<div class="status error">Erreur&nbsp;: ${message}</div>`;
 }
 
-function handleEvent(target, ui, data) {
+function handleEvent(target, ui, data, state) {
   switch (data.type) {
     case 'status':
       ui.msg.textContent = data.message || '';
@@ -106,8 +110,13 @@ function handleEvent(target, ui, data) {
       ui.eta.textContent = data.eta > 0 ? `restant ~${fmtSeconds(data.eta)}` : '';
       break;
     }
+    case 'warning':
+      // L'event 'warning' arrive juste avant 'done'. On le mémorise pour
+      // l'afficher au-dessus de l'image.
+      state.warning = data.message;
+      break;
     case 'done':
-      showResult(target, data);
+      showResult(target, data, state.warning);
       break;
     case 'error':
       showError(target, data.message || 'inconnue');
@@ -119,6 +128,7 @@ async function streamSubmit(form, url, target, initialMessage) {
   const btn = form.querySelector('button[type="submit"]');
   btn.disabled = true;
   const ui = renderProgress(target, initialMessage);
+  const state = { warning: null };
 
   try {
     const fd = new FormData(form);
@@ -152,7 +162,7 @@ async function streamSubmit(form, url, target, initialMessage) {
           let payload;
           try { payload = JSON.parse(line.slice(6)); }
           catch { continue; }
-          handleEvent(target, ui, payload);
+          handleEvent(target, ui, payload, state);
           if (payload.type === 'done' || payload.type === 'error') {
             return;
           }

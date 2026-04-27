@@ -41,6 +41,20 @@ STATIC_DIR = SERVER_DIR / "static"
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 (OUTPUTS_DIR / "uploads").mkdir(parents=True, exist_ok=True)
 
+# Auto-création des profils mannequin depuis les .example.json livrés avec
+# le dépôt — pour que la dropdown ne soit pas vide au premier lancement.
+def _auto_create_character_profiles() -> None:
+    if not CHARACTERS_DIR.exists():
+        return
+    for example in CHARACTERS_DIR.glob("*.example.json"):
+        target = CHARACTERS_DIR / example.name.replace(".example.json", ".json")
+        if not target.exists():
+            target.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+            print(f"[serveur] Profil créé : {target.name} (depuis {example.name})", flush=True)
+
+
+_auto_create_character_profiles()
+
 # Permettre l'import des modules `scripts/...`
 sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -484,6 +498,41 @@ def _is_oom(exc: Exception) -> bool:
             or "cuda out of memory" in msg)
 
 
+def _check_image_validity(image, queue: Queue) -> bool:
+    """Vérifie que l'image générée n'est pas toute noire ou cassée.
+
+    Retourne True si OK, False si problème détecté (et émet un événement
+    'warning' dans la queue avec un diagnostic).
+    """
+    try:
+        import numpy as np
+        arr = np.asarray(image)
+        if arr.ndim < 2:
+            return True
+        mean = float(arr.mean())
+        std = float(arr.std())
+    except Exception:
+        return True  # on ne casse pas pour un check de diagnostic
+
+    # Image quasi noire = NaN dans le pipeline.
+    if mean < 5.0:
+        msg = (f"⚠️ Image quasi-noire détectée (luminance moyenne {mean:.1f}/255, "
+               f"écart-type {std:.1f}). Cause typique : NaN dans la pipeline (RAM saturée). "
+               f"Conseils : baisse la résolution à 512×512, désactive le verrouillage "
+               f"facial, ferme les autres apps Mac, réessaie avec une seed différente.")
+        print(f"[serveur] {msg}", flush=True)
+        queue.put(("warning", {"message": msg}))
+        return False
+    # Image quasi unie (pas de variance = bruit ou couleur plate).
+    if std < 5.0:
+        msg = (f"⚠️ Image presque uniforme détectée (écart-type {std:.1f}/255). "
+               f"Probable défaillance de la génération — réessaie avec une seed différente.")
+        print(f"[serveur] {msg}", flush=True)
+        queue.put(("warning", {"message": msg}))
+        return False
+    return True
+
+
 def _format_sse(event_type: str, **data) -> str:
     payload = {"type": event_type, **data}
     return f"data: {json.dumps(payload)}\n\n"
@@ -669,6 +718,7 @@ def api_generate_stream(
             name = _timestamp_name("gen")
             out_path = OUTPUTS_DIR / name
             image.save(out_path)
+            _check_image_validity(image, queue)
             print(f"[serveur] Image générée en {elapsed:.1f}s → {out_path}", flush=True)
 
             emit("done",
@@ -773,6 +823,7 @@ def api_generate_character_stream(
             out_name = f"{path.stem}.png"
             out_path = CHARACTERS_DIR / out_name
             image.save(out_path)
+            _check_image_validity(image, queue)
 
             if character.seed != used_seed or character.portrait_path != str(out_path):
                 character.seed = used_seed
@@ -908,6 +959,7 @@ async def api_tryon_stream(
             name = _timestamp_name("tryon")
             out_path = OUTPUTS_DIR / name
             image.save(out_path)
+            _check_image_validity(image, queue)
 
             emit("done",
                  image_url=f"/outputs/{name}",
