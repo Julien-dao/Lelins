@@ -626,18 +626,22 @@ def api_generate_stream(
                  face_lock=face_ref_image is not None, mode=mode)
 
             t_ref = {"t0": time.time()}
-            cb = _make_step_callback(queue, steps, t_ref)
+            # En mode rapide (4 pas), le callback diffusers déclenche parfois un
+            # IndexError côté scheduler SDXL Turbo. On retire le callback (le
+            # gain de feedback visuel est faible sur 4 pas de toute façon).
+            cb = None if mode == "fast" else _make_step_callback(queue, steps, t_ref)
 
             pipe_kwargs = dict(
                 prompt=positive,
-                negative_prompt=negative if mode != "fast" else None,
+                negative_prompt=negative if mode != "fast" else "",
                 width=width,
                 height=height,
                 num_inference_steps=steps,
                 guidance_scale=cfg,
                 generator=generator,
-                callback_on_step_end=cb,
             )
+            if cb is not None:
+                pipe_kwargs["callback_on_step_end"] = cb
             if face_ref_image is not None:
                 pipe_kwargs["ip_adapter_image"] = face_ref_image
 
@@ -658,7 +662,18 @@ def api_generate_stream(
                  prompt=positive)
         except Exception as e:
             traceback.print_exc()
-            emit("error", message=f"{type(e).__name__}: {e}")
+            # Aide ciblée selon le type d'erreur
+            hint = ""
+            msg = str(e).lower()
+            if "out of memory" in msg or "alloc" in msg:
+                hint = " — conseil : ferme d'autres apps, baisse la résolution, "\
+                       "active le mode rapide, ou désactive le verrouillage facial."
+            elif "index" in msg and "out of bounds" in msg:
+                hint = " — conseil : si tu es en mode rapide, désactive-le pour "\
+                       "voir si standard fonctionne ; sinon décoche le verrouillage facial."
+            elif "no such file" in msg or "no such file or directory" in msg:
+                hint = " — fichier manquant, vérifier le chemin."
+            emit("error", message=f"{type(e).__name__}: {e}{hint}")
 
     Thread(target=run, daemon=True).start()
     return StreamingResponse(_drain_queue_to_sse(queue), media_type="text/event-stream")
@@ -717,18 +732,19 @@ def api_generate_character_stream(
             emit("ready", message=f"Portrait de {character.name} en cours…", total=steps, mode=mode)
 
             t_ref = {"t0": time.time()}
-            cb = _make_step_callback(queue, steps, t_ref)
+            cb = None if mode == "fast" else _make_step_callback(queue, steps, t_ref)
 
             portrait_kwargs = dict(
                 prompt=character.build_portrait_prompt(),
-                negative_prompt=DEFAULT_NEGATIVE if mode != "fast" else None,
+                negative_prompt=DEFAULT_NEGATIVE if mode != "fast" else "",
                 width=width,
                 height=height,
                 num_inference_steps=steps,
                 guidance_scale=cfg,
                 generator=generator,
-                callback_on_step_end=cb,
             )
+            if cb is not None:
+                portrait_kwargs["callback_on_step_end"] = cb
             image = _generate_with_oom_retry(pipe, queue, portrait_kwargs, t_ref=t_ref)
             elapsed = time.time() - t_ref["t0"]
 
@@ -748,7 +764,18 @@ def api_generate_character_stream(
                  portrait_path=str(out_path.relative_to(ROOT)))
         except Exception as e:
             traceback.print_exc()
-            emit("error", message=f"{type(e).__name__}: {e}")
+            # Aide ciblée selon le type d'erreur
+            hint = ""
+            msg = str(e).lower()
+            if "out of memory" in msg or "alloc" in msg:
+                hint = " — conseil : ferme d'autres apps, baisse la résolution, "\
+                       "active le mode rapide, ou désactive le verrouillage facial."
+            elif "index" in msg and "out of bounds" in msg:
+                hint = " — conseil : si tu es en mode rapide, désactive-le pour "\
+                       "voir si standard fonctionne ; sinon décoche le verrouillage facial."
+            elif "no such file" in msg or "no such file or directory" in msg:
+                hint = " — fichier manquant, vérifier le chemin."
+            emit("error", message=f"{type(e).__name__}: {e}{hint}")
 
     Thread(target=run, daemon=True).start()
     return StreamingResponse(_drain_queue_to_sse(queue), media_type="text/event-stream")
@@ -866,7 +893,18 @@ async def api_tryon_stream(
                  elapsed_seconds=round(elapsed, 1))
         except Exception as e:
             traceback.print_exc()
-            emit("error", message=f"{type(e).__name__}: {e}")
+            # Aide ciblée selon le type d'erreur
+            hint = ""
+            msg = str(e).lower()
+            if "out of memory" in msg or "alloc" in msg:
+                hint = " — conseil : ferme d'autres apps, baisse la résolution, "\
+                       "active le mode rapide, ou désactive le verrouillage facial."
+            elif "index" in msg and "out of bounds" in msg:
+                hint = " — conseil : si tu es en mode rapide, désactive-le pour "\
+                       "voir si standard fonctionne ; sinon décoche le verrouillage facial."
+            elif "no such file" in msg or "no such file or directory" in msg:
+                hint = " — fichier manquant, vérifier le chemin."
+            emit("error", message=f"{type(e).__name__}: {e}{hint}")
 
     Thread(target=run, daemon=True).start()
     return StreamingResponse(_drain_queue_to_sse(queue), media_type="text/event-stream")
