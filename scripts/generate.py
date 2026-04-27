@@ -63,9 +63,10 @@ def detect_device() -> tuple[str, "torch.dtype"]:
 
 def build_pipeline(model_id: str, device: str, dtype):
     """Charge le pipeline SDXL et applique les optimisations adaptées."""
+    import torch
     from diffusers import AutoencoderKL, StableDiffusionXLPipeline
 
-    is_fp16 = dtype.__repr__() == "torch.float16"
+    is_fp16 = (dtype == torch.float16)
 
     kwargs = dict(
         torch_dtype=dtype,
@@ -76,12 +77,33 @@ def build_pipeline(model_id: str, device: str, dtype):
     # Sur Mac MPS en fp16, le VAE par défaut souffre d'un overflow numérique
     # qui produit des images noires. On le remplace par le VAE corrigé.
     if device == "mps" and is_fp16:
-        kwargs["vae"] = AutoencoderKL.from_pretrained(
-            SDXL_VAE_FP16_FIX, torch_dtype=dtype,
-        )
+        print("[build_pipeline] Mac MPS détecté — chargement du VAE fp16-fix "
+              "(madebyollin/sdxl-vae-fp16-fix)…", flush=True)
+        try:
+            kwargs["vae"] = AutoencoderKL.from_pretrained(
+                SDXL_VAE_FP16_FIX, torch_dtype=dtype,
+            )
+            print("[build_pipeline] VAE corrigé chargé.", flush=True)
+        except Exception as e:
+            print(f"[build_pipeline] ÉCHEC chargement VAE corrigé : {e}", flush=True)
+            print("[build_pipeline] On charge le pipeline avec le VAE par défaut "
+                  "(sera forcé en fp32 ci-dessous).", flush=True)
 
     pipe = StableDiffusionXLPipeline.from_pretrained(model_id, **kwargs)
     pipe = pipe.to(device)
+
+    # Belt-and-suspenders : sur MPS, on force le VAE en fp32 même avec le
+    # VAE corrigé. C'est la seule garantie absolue contre les NaN/inf qui
+    # produisent des images noires. Le surcoût mémoire est faible (~330 Mo
+    # supplémentaires) parce que VAE slicing/tiling limite l'empreinte.
+    if device == "mps":
+        print("[build_pipeline] Upcast VAE en fp32 (anti-NaN MPS)…", flush=True)
+        pipe.vae = pipe.vae.to(dtype=torch.float32)
+        # Important : sur SDXL, force_upcast doit être True quand le VAE
+        # tourne en fp32 et le reste en fp16 (pour que diffusers fasse les
+        # bonnes conversions).
+        if hasattr(pipe.vae.config, "force_upcast"):
+            pipe.vae.config.force_upcast = True
 
     if device == "mps":
         # Optimisations mémoire critiques sur Apple Silicon, surtout 8 Go.

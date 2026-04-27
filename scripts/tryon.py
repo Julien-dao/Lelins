@@ -61,9 +61,10 @@ def detect_device() -> tuple[str, "torch.dtype"]:
 
 def build_inpaint_pipeline(model_id: str, device: str, dtype):
     """Charge le pipeline SDXL Inpainting et applique les optimisations."""
+    import torch
     from diffusers import AutoencoderKL, StableDiffusionXLInpaintPipeline
 
-    is_fp16 = dtype.__repr__() == "torch.float16"
+    is_fp16 = (dtype == torch.float16)
 
     kwargs = dict(
         torch_dtype=dtype,
@@ -74,12 +75,24 @@ def build_inpaint_pipeline(model_id: str, device: str, dtype):
     # Sur Mac MPS en fp16, le VAE par défaut overflow et produit des images
     # noires. On utilise le VAE corrigé (compatible SDXL et SDXL Inpainting).
     if device == "mps" and is_fp16:
-        kwargs["vae"] = AutoencoderKL.from_pretrained(
-            "madebyollin/sdxl-vae-fp16-fix", torch_dtype=dtype,
-        )
+        print("[build_inpaint_pipeline] Mac MPS — chargement VAE fp16-fix…", flush=True)
+        try:
+            kwargs["vae"] = AutoencoderKL.from_pretrained(
+                "madebyollin/sdxl-vae-fp16-fix", torch_dtype=dtype,
+            )
+            print("[build_inpaint_pipeline] VAE corrigé chargé.", flush=True)
+        except Exception as e:
+            print(f"[build_inpaint_pipeline] ÉCHEC VAE corrigé : {e}", flush=True)
 
     pipe = StableDiffusionXLInpaintPipeline.from_pretrained(model_id, **kwargs)
     pipe = pipe.to(device)
+
+    # Anti-NaN : force le VAE en fp32 sur MPS (garanti contre les images noires).
+    if device == "mps":
+        print("[build_inpaint_pipeline] Upcast VAE en fp32 (anti-NaN MPS)…", flush=True)
+        pipe.vae = pipe.vae.to(dtype=torch.float32)
+        if hasattr(pipe.vae.config, "force_upcast"):
+            pipe.vae.config.force_upcast = True
 
     if device == "mps":
         # Optimisations mémoire critiques sur Apple Silicon, surtout 8 Go.
