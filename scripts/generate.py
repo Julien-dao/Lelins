@@ -118,11 +118,12 @@ def build_pipeline(model_id: str, device: str, dtype):
     pipe = PipeClass.from_pretrained(model_id, **kwargs)
     pipe = pipe.to(device)
 
-    # Sur MPS, force le VAE en fp32 — seule garantie absolue contre les
-    # NaN/inf qui produisent des images noires (le UNet en fp16 peut sortir
-    # des latents instables, le VAE fp32 décode quand même proprement).
-    if device == "mps":
-        print("[build_pipeline] Upcast VAE en fp32 (anti-NaN MPS)…", flush=True)
+    # Sur MPS + SDXL uniquement : force le VAE en fp32 contre les NaN/inf
+    # (le UNet SDXL en fp16 peut sortir des latents instables, le VAE fp32
+    # décode quand même proprement). SD 1.5 n'a pas ce bug et l'upcast
+    # crée des conflits de dtype Half/float dans le pipeline → on évite.
+    if device == "mps" and is_sdxl:
+        print("[build_pipeline] Upcast VAE en fp32 (anti-NaN MPS, SDXL only)…", flush=True)
         pipe.vae = pipe.vae.to(dtype=torch.float32)
         if hasattr(pipe.vae.config, "force_upcast"):
             pipe.vae.config.force_upcast = True

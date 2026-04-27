@@ -35,6 +35,25 @@ def _is_sdxl_pipe(pipe) -> bool:
     return type(pipe).__name__.startswith("StableDiffusionXL")
 
 
+def _align_image_encoder_dtype(pipe) -> None:
+    """Aligne le dtype de l'image_encoder de l'IP-Adapter sur celui du pipeline.
+
+    Sans ça, l'image_encoder peut être chargé en fp32 pendant que le reste
+    tourne en fp16 → erreur MPS 'Input type (Half) and bias type (float)
+    should be the same' pendant l'encodage de l'image de référence.
+    """
+    if not hasattr(pipe, "image_encoder") or pipe.image_encoder is None:
+        return
+    target_dtype = None
+    if hasattr(pipe, "unet") and pipe.unet is not None:
+        target_dtype = pipe.unet.dtype
+    elif hasattr(pipe, "dtype"):
+        target_dtype = pipe.dtype
+    if target_dtype is None:
+        return
+    pipe.image_encoder.to(dtype=target_dtype)
+
+
 def load_face_adapter(pipe, scale: float = 0.8) -> None:
     """Charge l'adapter visage et règle son intensité.
 
@@ -52,6 +71,7 @@ def load_face_adapter(pipe, scale: float = 0.8) -> None:
         subfolder, weight = SD15_SUBFOLDER, SD15_FACE_WEIGHT
     pipe.load_ip_adapter(IP_ADAPTER_REPO, subfolder=subfolder, weight_name=weight)
     pipe.set_ip_adapter_scale(scale)
+    _align_image_encoder_dtype(pipe)
 
 
 def load_general_adapter(pipe, scale: float = 0.7) -> None:
@@ -62,6 +82,7 @@ def load_general_adapter(pipe, scale: float = 0.7) -> None:
         subfolder, weight = SD15_SUBFOLDER, SD15_GENERAL_WEIGHT
     pipe.load_ip_adapter(IP_ADAPTER_REPO, subfolder=subfolder, weight_name=weight)
     pipe.set_ip_adapter_scale(scale)
+    _align_image_encoder_dtype(pipe)
 
 
 def open_reference_image(path: Path | str, max_side: int = 1024) -> Image.Image:
