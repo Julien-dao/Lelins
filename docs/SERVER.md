@@ -89,27 +89,44 @@ Les anciens endpoints synchrones (`/api/generate`, etc.) restent disponibles
 pour des appels API qui ne veulent pas parser le SSE — ils retournent du
 JSON classique en fin de génération.
 
-## ⚡ Mode rapide (SDXL Turbo)
+## Trois modes de génération
 
-Pour itérer rapidement — particulièrement utile sur **Mac M1 8 Go** ou tout
-matériel modeste — l'interface propose un toggle **« ⚡ Mode rapide »**
+L'interface propose trois modes via un sélecteur **« Mode de génération »**
 dans les onglets Visuel produit et Portrait mannequin.
+
+| Mode          | Modèle           | Taille | Idéal pour          | Qualité  |
+|---------------|------------------|--------|---------------------|----------|
+| 🏆 Standard   | SDXL base        | ~7 Go  | Mac 16 Go+ / GPU NVIDIA | Maximum  |
+| ⚡ Rapide     | SDXL Turbo       | ~7 Go  | Mac 16 Go+ rapide   | Très bonne |
+| 🪶 Léger      | SD 1.5           | ~4 Go  | **Mac 8 Go** ou matériel modeste | Bonne |
+
+Le mode **🪶 Léger** est le **défaut** dans l'UI : il utilise Stable
+Diffusion 1.5 (modèle plus petit et plus stable, sorti en 2022). Idéal sur
+Mac M1/M2 8 Go où SDXL provoque du swap massif.
+
+### Comparaison de performance (Mac MPS, 512×512)
+
+| Matériel        | 🏆 Standard (SDXL, 25 pas) | ⚡ Rapide (Turbo, 4 pas) | 🪶 Léger (SD 1.5, 25 pas) |
+|-----------------|----------------------------|--------------------------|----------------------------|
+| M1 8 Go         | impraticable (10-15 min)   | impraticable (10 min)    | **~30-60 s**               |
+| M2 16 Go        | ~60 s                      | ~20 s                    | ~25 s                      |
+| M3 Max          | ~25 s                      | ~6 s                     | ~10 s                      |
+
+### À savoir sur SD 1.5
+
+- Modèle plus ancien (2022) que SDXL (2023). Esthétique parfois moins moderne.
+- Toujours très utilisé pour le photoréalisme grâce à de nombreuses fines
+  versions communautaires (Realistic Vision, DreamShaper, etc.).
+- Si la qualité de base SD 1.5 ne te convient pas, on peut basculer sur une
+  version fine-tunée — me demander.
+
+### Anciens repères Mode rapide (SDXL Turbo)
 
 Quand activé :
 
 - Bascule sur **SDXL Turbo** (modèle dérivé optimisé pour très peu de pas)
 - Force `steps = 4` et `guidance_scale = 0` (paramètres optimaux Turbo)
-- Génère **3-5× plus vite** qu'en mode standard
-- Qualité légèrement inférieure (parfait pour l'exploration, moins pour le
-  rendu final destiné au catalogue)
-
-Indicatif sur Mac MPS, 768×768 :
-
-| Matériel        | Mode standard (25 pas) | Mode rapide (4 pas) |
-|-----------------|-----------------------|---------------------|
-| M1 8 Go         | ~75 s                 | **~20 s**           |
-| M2 16 Go        | ~45 s                 | **~12 s**           |
-| M3 Max          | ~20 s                 | **~5 s**            |
+- Pas adapté au Mac 8 Go (modèle ~7 Go = swap massif)
 
 ### ⚠️ Bascule entre les modes (important sur 8 Go RAM)
 

@@ -91,10 +91,14 @@
         </label>
       </details>
 
-      <label class="fast-toggle">
-        <input type="checkbox" name="mode" value="fast">
-        <span class="fast-badge">⚡ Mode rapide</span>
-        <span class="fast-hint">SDXL Turbo · 4 pas · ~3-5× plus rapide sur Mac (qualité un peu moindre, parfait pour itérer)</span>
+      <label class="mode-select">
+        <span class="mode-label">Mode de génération</span>
+        <select name="mode" class="mode-dropdown">
+          <option value="standard">🏆 Standard — SDXL base, qualité maximale (lent sur Mac)</option>
+          <option value="fast">⚡ Rapide — SDXL Turbo, 4 pas (Mac 16 Go+)</option>
+          <option value="light" selected>🪶 Léger — SD 1.5, ~4 Go RAM (Mac 8 Go recommandé)</option>
+        </select>
+        <span class="mode-hint">Mac 8 Go : reste sur « Léger ». Mac 16 Go+ : essaie « Rapide » ou « Standard ».</span>
       </label>
 
       <button class="primary" type="submit">Générer</button>
@@ -135,10 +139,14 @@
         <label>Seed (force) <input type="number" name="seed" placeholder="auto"></label>
       </details>
 
-      <label class="fast-toggle">
-        <input type="checkbox" name="mode" value="fast">
-        <span class="fast-badge">⚡ Mode rapide</span>
-        <span class="fast-hint">SDXL Turbo · 4 pas · idéal pour explorer plusieurs visages en quelques minutes</span>
+      <label class="mode-select">
+        <span class="mode-label">Mode de génération</span>
+        <select name="mode" class="mode-dropdown">
+          <option value="standard">🏆 Standard — SDXL base, qualité maximale (lent sur Mac)</option>
+          <option value="fast">⚡ Rapide — SDXL Turbo, 4 pas (Mac 16 Go+)</option>
+          <option value="light" selected>🪶 Léger — SD 1.5, ~4 Go RAM (Mac 8 Go recommandé)</option>
+        </select>
+        <span class="mode-hint">Mac 8 Go : reste sur « Léger ». Mac 16 Go+ : essaie « Rapide » ou « Standard ».</span>
       </label>
 
       <button class="primary" type="submit">Générer le portrait</button>

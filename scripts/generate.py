@@ -44,10 +44,17 @@ from prompts import Character, ProductPrompt, simple_prompt  # noqa: E402
 
 DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
 SDXL_TURBO_MODEL_ID = "stabilityai/sdxl-turbo"
+SD15_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 
 # VAE corrigé pour éviter l'overflow fp16 sur Mac MPS qui produit des
 # images entièrement noires. Voir https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
 SDXL_VAE_FP16_FIX = "madebyollin/sdxl-vae-fp16-fix"
+
+
+def is_sdxl_model(model_id: str) -> bool:
+    """Heuristique : reconnaît un modèle SDXL d'après son ID HuggingFace."""
+    lo = model_id.lower()
+    return "stable-diffusion-xl" in lo or "sdxl" in lo
 
 
 def detect_device() -> tuple[str, "torch.dtype"]:
@@ -62,23 +69,37 @@ def detect_device() -> tuple[str, "torch.dtype"]:
 
 
 def build_pipeline(model_id: str, device: str, dtype):
-    """Charge le pipeline SDXL et applique les optimisations adaptées."""
-    import torch
-    from diffusers import AutoencoderKL, StableDiffusionXLPipeline
+    """Charge un pipeline image (SDXL ou SD 1.5) selon le model_id.
 
+    Détecte automatiquement la classe correcte (StableDiffusionXLPipeline pour
+    SDXL, StableDiffusionPipeline pour SD 1.5) et applique les optimisations
+    adaptées à ``device``.
+    """
+    import torch
+    from diffusers import (
+        AutoencoderKL,
+        StableDiffusionPipeline,
+        StableDiffusionXLPipeline,
+    )
+
+    is_sdxl = is_sdxl_model(model_id)
+    PipeClass = StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
     is_fp16 = (dtype == torch.float16)
 
     kwargs = dict(
         torch_dtype=dtype,
         use_safetensors=True,
-        variant="fp16" if is_fp16 else None,
     )
+    # variant fp16 dispo systématiquement pour SDXL ; SD 1.5 a parfois pas de
+    # variant nommé donc on ne le force que pour SDXL.
+    if is_fp16 and is_sdxl:
+        kwargs["variant"] = "fp16"
 
-    # Sur Mac MPS en fp16, le VAE par défaut souffre d'un overflow numérique
-    # qui produit des images noires. On le remplace par le VAE corrigé.
-    if device == "mps" and is_fp16:
-        print("[build_pipeline] Mac MPS détecté — chargement du VAE fp16-fix "
-              "(madebyollin/sdxl-vae-fp16-fix)…", flush=True)
+    # VAE corrigé pour SDXL sur MPS uniquement (SD 1.5 a son propre VAE
+    # qui ne souffre pas du bug d'overflow).
+    if is_sdxl and device == "mps" and is_fp16:
+        print(f"[build_pipeline] Mac MPS détecté — chargement du VAE fp16-fix "
+              f"({SDXL_VAE_FP16_FIX})…", flush=True)
         try:
             kwargs["vae"] = AutoencoderKL.from_pretrained(
                 SDXL_VAE_FP16_FIX, torch_dtype=dtype,
@@ -86,22 +107,17 @@ def build_pipeline(model_id: str, device: str, dtype):
             print("[build_pipeline] VAE corrigé chargé.", flush=True)
         except Exception as e:
             print(f"[build_pipeline] ÉCHEC chargement VAE corrigé : {e}", flush=True)
-            print("[build_pipeline] On charge le pipeline avec le VAE par défaut "
-                  "(sera forcé en fp32 ci-dessous).", flush=True)
 
-    pipe = StableDiffusionXLPipeline.from_pretrained(model_id, **kwargs)
+    print(f"[build_pipeline] Chargement {PipeClass.__name__} pour '{model_id}'…", flush=True)
+    pipe = PipeClass.from_pretrained(model_id, **kwargs)
     pipe = pipe.to(device)
 
-    # Belt-and-suspenders : sur MPS, on force le VAE en fp32 même avec le
-    # VAE corrigé. C'est la seule garantie absolue contre les NaN/inf qui
-    # produisent des images noires. Le surcoût mémoire est faible (~330 Mo
-    # supplémentaires) parce que VAE slicing/tiling limite l'empreinte.
+    # Sur MPS, force le VAE en fp32 — seule garantie absolue contre les
+    # NaN/inf qui produisent des images noires (le UNet en fp16 peut sortir
+    # des latents instables, le VAE fp32 décode quand même proprement).
     if device == "mps":
         print("[build_pipeline] Upcast VAE en fp32 (anti-NaN MPS)…", flush=True)
         pipe.vae = pipe.vae.to(dtype=torch.float32)
-        # Important : sur SDXL, force_upcast doit être True quand le VAE
-        # tourne en fp32 et le reste en fp16 (pour que diffusers fasse les
-        # bonnes conversions).
         if hasattr(pipe.vae.config, "force_upcast"):
             pipe.vae.config.force_upcast = True
 

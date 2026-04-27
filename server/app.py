@@ -70,13 +70,21 @@ def _free_memory():
         pass
 
 
+_MODE_TO_MODEL = {
+    "standard": ("SDXL base", "DEFAULT_MODEL_ID"),
+    "fast":     ("SDXL Turbo (mode rapide)", "SDXL_TURBO_MODEL_ID"),
+    "light":    ("SD 1.5 (mode léger)", "SD15_MODEL_ID"),
+}
+
+
 def get_text2img_pipe(mode: str = "standard"):
-    """Charge SDXL text-to-image au premier usage, ou bascule de mode si besoin.
+    """Charge le pipeline text-to-image au premier usage, ou bascule de mode.
 
-    mode='standard' → SDXL base (qualité standard, 20-30 pas)
-    mode='fast'     → SDXL Turbo (4 pas, cfg=0, ~3-5× plus rapide sur Mac MPS)
+    mode='standard' → SDXL base (qualité max, 20-30 pas, ~7 Go RAM)
+    mode='fast'     → SDXL Turbo (4 pas, cfg=0, ~7 Go RAM, 3-5× plus rapide)
+    mode='light'    → SD 1.5 (4 Go RAM seulement, idéal Mac 8 Go, qualité moindre)
 
-    Sur 8 Go de RAM, garder les deux modèles en mémoire est exclu : on
+    Sur RAM limitée, garder plusieurs modèles en mémoire est exclu : on
     décharge l'ancien avant de charger le nouveau (lent au moment du switch).
     """
     global _pipe_text2img, _pipe_text2img_mode, _face_adapter_loaded
@@ -90,14 +98,17 @@ def get_text2img_pipe(mode: str = "standard"):
         _free_memory()
 
     if _pipe_text2img is None:
-        from generate import (DEFAULT_MODEL_ID, SDXL_TURBO_MODEL_ID,
-                              build_pipeline, detect_device)
-        device, dtype = detect_device()
-        model_id = SDXL_TURBO_MODEL_ID if mode == "fast" else DEFAULT_MODEL_ID
-        label = "SDXL Turbo (mode rapide)" if mode == "fast" else "SDXL base"
+        import generate as gen_module
+        device, dtype = gen_module.detect_device()
+
+        if mode not in _MODE_TO_MODEL:
+            mode = "standard"
+        label, model_attr = _MODE_TO_MODEL[mode]
+        model_id = getattr(gen_module, model_attr)
+
         print(f"[serveur] Chargement {label} sur {device}…", flush=True)
         t0 = time.time()
-        _pipe_text2img = build_pipeline(model_id, device, dtype)
+        _pipe_text2img = gen_module.build_pipeline(model_id, device, dtype)
         _pipe_text2img_mode = mode
         print(f"[serveur] {label} prêt en {time.time() - t0:.1f}s.", flush=True)
     return _pipe_text2img
@@ -563,11 +574,16 @@ def api_generate_stream(
 ):
     queue: Queue = Queue()
 
-    # En mode rapide (SDXL Turbo), on impose les paramètres recommandés.
-    # SDXL Turbo est entraîné en 512×512 ; au-delà la qualité chute.
+    # Réglages spécifiques par mode.
+    # SDXL Turbo : 4 pas, pas de CFG, max 768×768 (résolution native 512).
+    # SD 1.5     : pas de CFG par défaut, max 768×768 (résolution native 512).
     if mode == "fast":
         steps = 4
         cfg = 0.0
+        width = min(width, 768)
+        height = min(height, 768)
+    elif mode == "light":
+        # SD 1.5 ne supporte pas bien les grandes résolutions.
         width = min(width, 768)
         height = min(height, 768)
 
@@ -600,12 +616,13 @@ def api_generate_stream(
 
             need_load = _pipe_text2img is None or _pipe_text2img_mode != mode
             if need_load:
-                if mode == "fast":
-                    emit("status", message="Chargement de SDXL Turbo (mode rapide)… "
-                         "(premier lancement : téléchargement ~7 Go, peut durer 5-15 min)")
-                else:
-                    emit("status", message="Chargement de SDXL base… (premier lancement : "
-                         "téléchargement ~7 Go, peut durer 5-15 min)")
+                msgs = {
+                    "fast":  "Chargement de SDXL Turbo (mode rapide)…",
+                    "light": "Chargement de SD 1.5 (mode léger, ~4 Go)…",
+                }
+                msg = msgs.get(mode, "Chargement de SDXL base…")
+                emit("status", message=msg + " (premier lancement : téléchargement, "
+                     "peut durer 3-10 min selon connexion)")
             pipe = get_text2img_pipe(mode=mode)
 
             face_ref_image = None
@@ -626,8 +643,8 @@ def api_generate_stream(
                  face_lock=face_ref_image is not None, mode=mode)
 
             t_ref = {"t0": time.time()}
-            # En mode rapide (4 pas), le callback diffusers déclenche parfois un
-            # IndexError côté scheduler SDXL Turbo. On retire le callback (le
+            # En mode rapide (4 pas SDXL Turbo), le callback diffusers déclenche
+            # parfois un IndexError côté scheduler. On retire le callback (le
             # gain de feedback visuel est faible sur 4 pas de toute façon).
             cb = None if mode == "fast" else _make_step_callback(queue, steps, t_ref)
 
@@ -648,6 +665,7 @@ def api_generate_stream(
             image = _generate_with_oom_retry(pipe, queue, pipe_kwargs, t_ref=t_ref)
             elapsed = time.time() - t_ref["t0"]
 
+            del pipe_kwargs  # libère les références aux tenseurs
             name = _timestamp_name("gen")
             out_path = OUTPUTS_DIR / name
             image.save(out_path)
@@ -697,6 +715,9 @@ def api_generate_character_stream(
         cfg = 0.0
         width = min(width, 768)
         height = min(height, 768)
+    elif mode == "light":
+        width = min(width, 768)
+        height = min(height, 768)
 
     def emit(event_type, **data):
         queue.put((event_type, data))
@@ -719,12 +740,13 @@ def api_generate_character_stream(
 
             need_load = _pipe_text2img is None or _pipe_text2img_mode != mode
             if need_load:
-                if mode == "fast":
-                    emit("status", message="Chargement de SDXL Turbo (mode rapide)… "
-                         "(premier lancement : téléchargement ~7 Go, peut durer 5-15 min)")
-                else:
-                    emit("status", message="Chargement de SDXL base… (premier lancement : "
-                         "téléchargement ~7 Go, peut durer 5-15 min)")
+                msgs = {
+                    "fast":  "Chargement de SDXL Turbo (mode rapide)…",
+                    "light": "Chargement de SD 1.5 (mode léger, ~4 Go)…",
+                }
+                msg = msgs.get(mode, "Chargement de SDXL base…")
+                emit("status", message=msg + " (premier lancement : téléchargement, "
+                     "peut durer 3-10 min selon connexion)")
             pipe = get_text2img_pipe(mode=mode)
 
             generator = _make_torch_generator(used_seed)

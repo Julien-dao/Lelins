@@ -9,22 +9,36 @@ document.querySelectorAll('.tab').forEach(btn => {
   });
 });
 
-// Quand le toggle « Mode rapide » bascule, on adapte la résolution recommandée
-// (SDXL Turbo donne ses meilleurs résultats en 512x512). On sauvegarde l'ancienne
-// valeur pour la restaurer si on redécoche.
-document.querySelectorAll('.fast-toggle input[type="checkbox"]').forEach(cb => {
-  cb.addEventListener('change', () => {
-    const form = cb.closest('form');
-    if (!form) return;
-    const w = form.querySelector('input[name="width"]');
-    const h = form.querySelector('input[name="height"]');
-    if (cb.checked) {
-      if (w) { w.dataset.previous = w.value; w.value = 512; }
-      if (h) { h.dataset.previous = h.value; h.value = 512; }
-    } else {
-      if (w && w.dataset.previous) w.value = w.dataset.previous;
-      if (h && h.dataset.previous) h.value = h.dataset.previous;
-    }
+// Quand le mode change, on adapte la résolution recommandée :
+//   - light  (SD 1.5)     → 512×512 native
+//   - fast   (SDXL Turbo) → 512×512 native
+//   - standard (SDXL base) → restaure ce que l'utilisateur avait avant
+// On sauvegarde la dernière valeur "standard" pour la restaurer.
+function recommendedSize(mode, isPortrait) {
+  if (mode === 'light' || mode === 'fast') {
+    return isPortrait ? { w: 512, h: 768 } : { w: 512, h: 512 };
+  }
+  return isPortrait ? { w: 896, h: 1152 } : { w: 1024, h: 1024 };
+}
+
+document.querySelectorAll('.mode-select select').forEach(sel => {
+  // Initialise la résolution selon le mode sélectionné par défaut
+  const form = sel.closest('form');
+  if (!form) return;
+  const isPortrait = form.id === 'form-portrait';
+  const w = form.querySelector('input[name="width"]');
+  const h = form.querySelector('input[name="height"]');
+  if (w && h) {
+    const init = recommendedSize(sel.value, isPortrait);
+    w.value = init.w;
+    h.value = init.h;
+  }
+
+  sel.addEventListener('change', () => {
+    if (!w || !h) return;
+    const target = recommendedSize(sel.value, isPortrait);
+    w.value = target.w;
+    h.value = target.h;
   });
 });
 
