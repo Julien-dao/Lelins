@@ -1,3 +1,13 @@
+---
+title: Lelins Marketing Agency
+emoji: 🎯
+colorFrom: orange
+colorTo: red
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Lelins &mdash; Agence virtuelle de marketing direct
 
 Vente en ligne de sous-vetements et vetements homme. Ce repo heberge une
@@ -39,6 +49,11 @@ Chaque agent reutilise le profil de marque (`app/brands/`) pour calibrer son
 ton, son audience, ses do/dont.
 
 ## Demarrage rapide
+
+> **Sur iPhone / sans installer Python ?** Suis le guide [`DEPLOY.md`](DEPLOY.md)
+> pour deployer gratuitement sur Hugging Face Spaces (URL publique, depuis Safari).
+
+
 
 ### 1. Cle API Mistral (gratuite)
 
