@@ -1,0 +1,106 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/andrea-license",
+    "crates/andrea-db",
+    "crates/andrea-backup",
+    "crates/andrea-license-server",
+    "crates/andrea-llm",
+    "crates/andrea-hardware",
+    "crates/andrea-models",
+    "crates/andrea-stt",
+    "crates/andrea-tts",
+    "crates/andrea-conversation",
+    "crates/andrea-rag",
+    "crates/andrea-referentiel",
+    "crates/andrea-prompt",
+    "crates/andrea-onboarding",
+]
+# The Tauri desktop crate is intentionally excluded from the workspace —
+# `webkit2gtk` is unavailable on the Linux CI runner that drives `cargo
+# test --workspace`. It builds standalone on macOS and Windows via
+# `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`, with
+# its own `[workspace]` table at the bottom of that manifest.
+exclude = ["apps/desktop/src-tauri"]
+default-members = [
+    "crates/andrea-license",
+    "crates/andrea-db",
+    "crates/andrea-backup",
+    "crates/andrea-license-server",
+    "crates/andrea-llm",
+    "crates/andrea-hardware",
+    "crates/andrea-models",
+    "crates/andrea-stt",
+    "crates/andrea-tts",
+    "crates/andrea-conversation",
+    "crates/andrea-rag",
+    "crates/andrea-referentiel",
+    "crates/andrea-prompt",
+    "crates/andrea-onboarding",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "Proprietary"
+authors = ["Julien PERROT <julien@andrea-formation.fr>"]
+repository = "https://github.com/Julien-dao/Lelins"
+
+[workspace.dependencies]
+# Crypto
+ed25519-dalek = { version = "2.2", features = ["rand_core"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+sha2 = "0.10"
+hmac = "0.12"
+subtle = "2.6"
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+
+# Encoding
+data-encoding = "2.6"
+hex = "0.4"
+
+# DB
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Errors
+thiserror = "2.0"
+
+# Time
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Compression
+zstd = "0.13"
+tar = "0.4"
+
+# Async runtime and HTTP
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread", "fs", "io-util", "sync", "time", "process"] }
+async-trait = "0.1"
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+bytes = "1.7"
+
+# Hardware introspection
+sysinfo = { version = "0.32", default-features = false, features = ["system"] }
+
+# Logging
+tracing = "0.1"
+
+# Test utilities
+wiremock = "0.6"
+tempfile = "3.13"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

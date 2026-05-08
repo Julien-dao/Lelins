@@ -1,0 +1,57 @@
+[package]
+name = "andrea-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "Proprietary"
+authors = ["Julien PERROT"]
+description = "ANDREA — desktop shell (Tauri 2.x)."
+default-run = "andrea-desktop"
+
+[lib]
+name = "andrea_desktop_lib"
+path = "src/lib.rs"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "andrea-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-store = "2.0"
+tauri-plugin-updater = "2.0"
+
+andrea-license = { path = "../../../crates/andrea-license" }
+andrea-db = { path = "../../../crates/andrea-db" }
+andrea-backup = { path = "../../../crates/andrea-backup" }
+andrea-llm = { path = "../../../crates/andrea-llm" }
+andrea-stt = { path = "../../../crates/andrea-stt" }
+andrea-tts = { path = "../../../crates/andrea-tts" }
+andrea-hardware = { path = "../../../crates/andrea-hardware" }
+andrea-conversation = { path = "../../../crates/andrea-conversation" }
+andrea-rag = { path = "../../../crates/andrea-rag" }
+andrea-referentiel = { path = "../../../crates/andrea-referentiel" }
+andrea-prompt = { path = "../../../crates/andrea-prompt" }
+andrea-onboarding = { path = "../../../crates/andrea-onboarding" }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread", "fs", "io-util", "sync", "time", "process"] }
+
+[features]
+# Default features for Tauri (consumed by tauri::AppBuilder)
+custom-protocol = ["tauri/custom-protocol"]
+
+# This crate is its own workspace root: the parent Cargo.toml lists it
+# under `workspace.exclude` because `webkit2gtk` is not available on the
+# Linux CI runner that drives `cargo test --workspace`. The desktop crate
+# is built standalone on macOS and Windows in the `tauri-check` job.
+[workspace]

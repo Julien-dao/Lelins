@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# This workflow produces signed and notarized DMGs for macOS (arm64 + x86_64)
+# and a signed MSI installer for Windows, then publishes them as a GitHub
+# Release alongside a Minisign-signed `latest.json` manifest consumed by
+# `tauri-plugin-updater`.
+#
+# Required repository secrets (cf. docs/06-plan-etapes.md étape 7):
+#
+#   APPLE_CERTIFICATE             — base64 of the Developer ID Application .p12
+#   APPLE_CERTIFICATE_PASSWORD    — password of the .p12 above
+#   APPLE_SIGNING_IDENTITY        — full identity, e.g. "Developer ID Application: Julien PERROT (XXXXXXXXXX)"
+#   APPLE_ID                      — Apple ID email used to notarize
+#   APPLE_TEAM_ID                 — Apple Developer team ID
+#   APPLE_PASSWORD                — app-specific password for notarization
+#   WINDOWS_CERTIFICATE           — base64 of the Authenticode .pfx
+#   WINDOWS_CERTIFICATE_PASSWORD  — password of the .pfx above
+#   TAURI_SIGNING_PRIVATE_KEY     — Minisign private key used by tauri-plugin-updater
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD — passphrase for the Minisign key
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            tauri-target: aarch64-apple-darwin
+          - os: macos-14
+            target: x86_64-apple-darwin
+            tauri-target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            tauri-target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/desktop
+
+      - name: Import Apple certificate
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN=build.keychain
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security default-keychain -s $KEYCHAIN
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security set-keychain-settings -lut 21600 $KEYCHAIN
+          security import certificate.p12 -k $KEYCHAIN \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          rm certificate.p12
+
+      - name: Build Tauri bundle
+        env:
+          ANDREA_LICENSE_SECRET: ${{ secrets.ANDREA_LICENSE_SECRET }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Windows code signing is configured via tauri.conf.json wix.signTool
+          # — see scripts/release/sign-windows.ps1.
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: pnpm tauri build --target ${{ matrix.tauri-target }}
+        working-directory: apps/desktop
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: andrea-${{ matrix.tauri-target }}
+          path: |
+            apps/desktop/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/macos/*.app.tar.gz
+            apps/desktop/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/macos/*.app.tar.gz.sig
+            apps/desktop/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/msi/*.msi.zip
+            apps/desktop/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/msi/*.msi.zip.sig
+
+  publish:
+    name: Publish GitHub Release + latest.json
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate latest.json manifest
+        run: bash scripts/release/generate-latest-json.sh "${{ github.ref_name }}" artifacts > latest.json
+        env:
+          NOTES: ${{ github.event.head_commit.message }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ANDREA ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.app.tar.gz
+            artifacts/**/*.app.tar.gz.sig
+            artifacts/**/*.msi
+            artifacts/**/*.msi.zip
+            artifacts/**/*.msi.zip.sig
+            latest.json

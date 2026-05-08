@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  rust:
+    name: Rust crates (lint + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (workspace, deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test (workspace)
+        run: cargo test --workspace --all-targets
+
+      - name: License CLI smoke test
+        env:
+          ANDREA_LICENSE_SECRET: andrea-ci-test-secret
+        run: |
+          KEY=$(cargo run --quiet --bin andrea-license -- generate \
+            --tier discovery --email test@andrea-formation.fr)
+          echo "Generated: $KEY"
+          cargo run --quiet --bin andrea-license -- verify \
+            --key "$KEY" --email test@andrea-formation.fr
+
+  # Tauri app build : ensures the desktop crate (which lives outside the
+  # default workspace members on Linux because it needs webkit2gtk) still
+  # compiles on macOS arm64 and Windows. This is a check-only pass — the
+  # actual signed bundles are produced by `release.yml` on tag.
+  tauri-check:
+    name: Tauri app — typecheck + cargo check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/desktop
+        continue-on-error: false
+      - name: TypeScript build
+        run: pnpm build:vite
+        working-directory: apps/desktop
+      - name: Debug — list icons + dump tauri config
+        shell: bash
+        run: |
+          echo "=== icons present ==="
+          ls -la apps/desktop/src-tauri/icons/
+          echo "=== tauri.conf.json ==="
+          cat apps/desktop/src-tauri/tauri.conf.json
+          echo "=== dist exists? ==="
+          ls -la apps/desktop/dist/ | head -20
+      - name: cargo check (desktop crate)
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --verbose 2>&1
+      # Don't bury the failure — re-run so the precise stderr makes it into
+      # the annotation if `--verbose` swallowed it.
+      - name: cargo check (desktop crate, fallback no-verbose)
+        if: failure()
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml

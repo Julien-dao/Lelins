@@ -1,0 +1,19 @@
+[package]
+name = "andrea-license-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "License generation CLI used by Julien to mint ANDREA keys after Gumroad purchases."
+
+[[bin]]
+name = "andrea-license"
+path = "src/main.rs"
+
+[dependencies]
+andrea-license = { path = "../andrea-license" }
+chrono = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }

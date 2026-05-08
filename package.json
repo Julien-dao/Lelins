@@ -1,0 +1,23 @@
+{
+  "name": "andrea",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ANDREA — Formateur virtuel local pour Titre Pro FPA",
+  "author": "Julien PERROT",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @andrea/desktop dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}

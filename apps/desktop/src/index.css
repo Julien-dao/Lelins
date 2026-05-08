@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --color-andrea-50: #eef2ff;
+  --color-andrea-100: #e0e7ff;
+  --color-andrea-200: #c7d2fe;
+  --color-andrea-300: #a5b4fc;
+  --color-andrea-400: #818cf8;
+  --color-andrea-500: #6366f1;
+  --color-andrea-600: #4f46e5;
+  --color-andrea-700: #4338ca;
+  --color-andrea-800: #3730a3;
+  --color-andrea-900: #312e81;
+  --color-andrea-950: #1e1b4b;
+
+  --color-lagon-50: #f0fdfa;
+  --color-lagon-100: #ccfbf1;
+  --color-lagon-300: #5eead4;
+  --color-lagon-500: #14b8a6;
+  --color-lagon-600: #0d9488;
+  --color-lagon-700: #0f766e;
+  --color-lagon-900: #134e4a;
+
+  --color-bg-deep: #0a0a0f;
+  --color-surface-1: #18181b;
+  --color-surface-2: #27272a;
+
+  --font-sans: "Inter Variable", system-ui, -apple-system, sans-serif;
+  --font-serif: "Source Serif 4 Variable", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--color-bg-deep);
+    color: #f4f4f5;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    background-color: #fafafa;
+    color: #18181b;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss03", "tnum";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}

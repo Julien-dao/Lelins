@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ANDREA",
+  "version": "0.1.0",
+  "identifier": "fr.andrea-formation.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev:vite",
+    "beforeBuildCommand": "pnpm build:vite",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ANDREA",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "center": true,
+        "decorations": true,
+        "fullscreen": false,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://localhost:11434 ws://localhost:11434"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "msi"],
+    "category": "Education",
+    "shortDescription": "Formateur virtuel local pour préparer le Titre Pro FPA",
+    "longDescription": "ANDREA est une application 100% locale qui forme, évalue et guide les apprenants vers la certification du Titre Professionnel Formateur Professionnel d'Adultes.",
+    "copyright": "© 2026 Julien PERROT",
+    "publisher": "Julien PERROT",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {}
+}
