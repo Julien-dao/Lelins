@@ -1,0 +1,22 @@
+{% macro brand_select(brands, active_brand) %}
+<label>
+  Marque
+  <select name="brand">
+    {% for b in brands %}
+      <option value="{{ b.slug }}" {% if b.slug == active_brand %}selected{% endif %}>{{ b.name }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endmacro %}
+
+{% macro result_block(result, error) %}
+{% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+{% endif %}
+{% if result %}
+  <section class="result">
+    <h2>Resultat</h2>
+    <pre class="result-md">{{ result }}</pre>
+  </section>
+{% endif %}
+{% endmacro %}

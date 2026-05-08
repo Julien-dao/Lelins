@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord - Agence virtuelle{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Bienvenue dans ton agence marketing virtuelle</h1>
+  <p class="lead">
+    Quatre agents IA pretent a bosser pour ton e-commerce de produits physiques :
+    fiches produits, emails CRM, social media, publicites.
+  </p>
+  {% if not mistral_configured %}
+  <div class="alert alert-warn">
+    Aucune cle <code>MISTRAL_API_KEY</code> detectee. Cree un compte gratuit sur
+    <a href="https://console.mistral.ai/" target="_blank" rel="noopener">console.mistral.ai</a>
+    puis ajoute la cle dans <code>.env</code>.
+  </div>
+  {% endif %}
+</section>
+
+<section class="grid">
+  <a class="card" href="/copywriter">
+    <h2>Copywriter</h2>
+    <p>Fiches produits qui vendent : titre SEO, meta, description longue, FAQ.</p>
+  </a>
+  <a class="card" href="/email">
+    <h2>Email marketing</h2>
+    <p>Welcome, panier abandonne, post-achat, win-back, drops produits.</p>
+  </a>
+  <a class="card" href="/social">
+    <h2>Social media</h2>
+    <p>Posts Instagram, scripts TikTok, posts Facebook / LinkedIn.</p>
+  </a>
+  <a class="card" href="/ads">
+    <h2>Publicites</h2>
+    <p>Creatives Meta Ads, Google Search / PMax, TikTok Ads.</p>
+  </a>
+</section>
+
+<section class="brands">
+  <h3>Marques disponibles</h3>
+  <ul>
+    {% for b in brands %}
+      <li><strong>{{ b.name }}</strong> &mdash; {{ b.tagline }}</li>
+    {% endfor %}
+  </ul>
+  <p class="hint">Pour ajouter une marque : creer <code>app/brands/&lt;slug&gt;.py</code> et l'enregistrer dans <code>app/brands/__init__.py</code>.</p>
+</section>
+{% endblock %}
