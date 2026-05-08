@@ -9,6 +9,23 @@ L'app fonctionne sur le **free tier de Mistral** (`mistral-small-latest`).
 Architecture pensee pour Lelins en premier, mais facilement generalisable a
 d'autres marques.
 
+## Apercu
+
+### Tableau de bord
+![Dashboard](docs/screenshots/home.png)
+
+### Copywriter (fiches produits)
+![Copywriter](docs/screenshots/copywriter.png)
+
+### Email marketing
+![Email](docs/screenshots/email.png)
+
+### Social media
+![Social](docs/screenshots/social.png)
+
+### Publicites
+![Ads](docs/screenshots/ads.png)
+
 ## Agents disponibles
 
 | Agent | Page | Sortie |
