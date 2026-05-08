@@ -5,6 +5,9 @@ members = [
     "crates/andrea-db",
     "crates/andrea-backup",
     "crates/andrea-license-server",
+    "crates/andrea-llm",
+    "crates/andrea-hardware",
+    "crates/andrea-models",
     # "apps/desktop/src-tauri",  # added in step 1.F once scaffolded
 ]
 default-members = [
@@ -12,6 +15,9 @@ default-members = [
     "crates/andrea-db",
     "crates/andrea-backup",
     "crates/andrea-license-server",
+    "crates/andrea-llm",
+    "crates/andrea-hardware",
+    "crates/andrea-models",
 ]
 
 [workspace.package]
@@ -34,6 +40,7 @@ chacha20poly1305 = "0.10"
 
 # Encoding
 data-encoding = "2.6"
+hex = "0.4"
 
 # DB
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -54,6 +61,23 @@ clap = { version = "4.5", features = ["derive"] }
 # Compression
 zstd = "0.13"
 tar = "0.4"
+
+# Async runtime and HTTP
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread", "fs", "io-util", "sync", "time", "process"] }
+async-trait = "0.1"
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+bytes = "1.7"
+
+# Hardware introspection
+sysinfo = { version = "0.32", default-features = false, features = ["system"] }
+
+# Logging
+tracing = "0.1"
+
+# Test utilities
+wiremock = "0.6"
+tempfile = "3.13"
 
 [profile.release]
 opt-level = "z"
