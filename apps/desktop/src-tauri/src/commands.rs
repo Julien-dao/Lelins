@@ -2,11 +2,14 @@
 //!
 //! Each command is `async` to avoid blocking the runtime and returns a
 //! serializable result. Domain errors are converted to strings here for
-//! easy consumption from JS — finer error types can be reintroduced later
-//! once the frontend has a proper error UI.
+//! easy consumption from JS.
 
+use andrea_hardware::{HardwareProfile, ModelChoice, MIN_SUPPORTED_RAM_GB};
 use andrea_license::{verify, LicenseError, Tier};
 use serde::Serialize;
+use tauri::State;
+
+use crate::state::AppState;
 
 /// Trivial health-check used by the frontend at startup.
 #[tauri::command]
@@ -14,13 +17,20 @@ pub async fn ping() -> &'static str {
     "pong"
 }
 
+// ---------- Licence ----------
+
 /// Result returned by [`license_validate`].
 #[derive(Debug, Clone, Serialize)]
 pub struct LicenseSummary {
+    /// Canonical key string (`ANDREA-...`).
     pub canonical: String,
+    /// Tier label (`DECO` / `PRO` / `MAIT` / `BNDL`).
     pub tier: &'static str,
+    /// Format version embedded in the payload.
     pub version: u8,
+    /// Days since 2026-01-01 at issuance time.
     pub issued_days: u16,
+    /// Feature bitmask.
     pub features: u16,
 }
 
@@ -37,18 +47,15 @@ impl From<andrea_license::License> for LicenseSummary {
 }
 
 /// Validate a user-typed key against the embedded server secret and the
-/// installed user's email. Returns a `LicenseSummary` on success, or a
-/// human-readable error message on failure.
-///
-/// In v1 the server secret is embedded at compile time. The blocklist will
-/// be loaded from a bundled JSON file in a later step.
+/// installed user's email.
 #[tauri::command]
-pub async fn license_validate(raw_key: String, email: String) -> Result<LicenseSummary, String> {
-    let secret = option_env!("ANDREA_LICENSE_SECRET")
-        .map(|s| s.as_bytes().to_vec())
-        .unwrap_or_else(|| b"andrea-dev-placeholder-secret-do-not-ship".to_vec());
+pub async fn license_validate(
+    state: State<'_, AppState>,
+    raw_key: String,
+    email: String,
+) -> Result<LicenseSummary, String> {
     let revocation: &[&str] = &[];
-    verify(&raw_key, &email, &secret, revocation)
+    verify(&raw_key, &email, &state.license_secret, revocation)
         .map(LicenseSummary::from)
         .map_err(license_error_message)
 }
@@ -80,11 +87,102 @@ fn license_error_message(err: LicenseError) -> String {
         Crockford(_) => "Caractère invalide dans la clé.".to_string(),
         Tier(_) => "Tier de licence non reconnu.".to_string(),
         TierMismatch { .. } => "Le tier indiqué ne correspond pas à la clé.".to_string(),
-        UnsupportedVersion(v) => format!(
-            "Cette version de clé ({v}) n'est pas reconnue. Mettez à jour ANDREA."
-        ),
+        UnsupportedVersion(v) => {
+            format!("Cette version de clé ({v}) n'est pas reconnue. Mettez à jour ANDREA.")
+        }
         BadMac => "La signature de la clé est invalide.".to_string(),
         EmailMismatch => "Cette clé ne correspond pas à l'email saisi.".to_string(),
         Revoked => "Cette clé a été révoquée. Contactez le support.".to_string(),
     }
+}
+
+// ---------- Hardware & model selection ----------
+
+/// Return the detected hardware profile.
+#[tauri::command]
+pub async fn hardware_profile() -> HardwareProfile {
+    andrea_hardware::detect()
+}
+
+/// Return the model recommended for the current hardware. On insufficient
+/// RAM, returns a localised error message instead of a `ModelChoice`.
+#[tauri::command]
+pub async fn recommended_model() -> Result<ModelChoice, String> {
+    andrea_hardware::auto_select().map_err(|e| match e {
+        andrea_hardware::SelectionError::InsufficientRam { total_ram_gb, min } => {
+            format!(
+                "RAM insuffisante : {total_ram_gb} Go détectés, {min} Go requis. \
+                 ANDREA ne peut pas s'installer sur cette machine."
+            )
+        }
+    })
+}
+
+/// Static minimum supported RAM, in gibibytes. Useful for the UI to show
+/// requirements without an extra round-trip.
+#[tauri::command]
+pub async fn minimum_ram_gb() -> u32 {
+    MIN_SUPPORTED_RAM_GB
+}
+
+// ---------- Chat ----------
+
+/// Result of a single text-mode chat turn.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChatReply {
+    /// Full assistant response.
+    pub answer: String,
+}
+
+/// Send a text message to ANDREA. Blocks until the LLM emits its `done`
+/// frame. Streaming via Tauri events will be added in a later sub-step
+/// once the UI implements an event listener.
+#[tauri::command]
+pub async fn chat_send_text(
+    state: State<'_, AppState>,
+    message: String,
+) -> Result<ChatReply, String> {
+    let engine = state.engine.clone();
+    let turn = engine
+        .handle_text_turn(message)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(ChatReply {
+        answer: turn.answer,
+    })
+}
+
+/// Reset the conversation history.
+#[tauri::command]
+pub async fn chat_reset(state: State<'_, AppState>) -> Result<(), String> {
+    state.engine.reset();
+    Ok(())
+}
+
+/// Snapshot of the current conversation history.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChatHistoryEntry {
+    /// `"user"` or `"assistant"`.
+    pub role: String,
+    /// Message content.
+    pub content: String,
+}
+
+/// Return the current conversation history (without the system prompt).
+#[tauri::command]
+pub async fn chat_history(state: State<'_, AppState>) -> Vec<ChatHistoryEntry> {
+    state
+        .engine
+        .history()
+        .into_iter()
+        .map(|m| ChatHistoryEntry {
+            role: match m.role {
+                andrea_llm::ChatRole::System => "system",
+                andrea_llm::ChatRole::User => "user",
+                andrea_llm::ChatRole::Assistant => "assistant",
+            }
+            .to_string(),
+            content: m.content,
+        })
+        .collect()
 }

@@ -31,10 +31,16 @@ tauri-plugin-updater = "2.0"
 andrea-license = { path = "../../../crates/andrea-license" }
 andrea-db = { path = "../../../crates/andrea-db" }
 andrea-backup = { path = "../../../crates/andrea-backup" }
+andrea-llm = { path = "../../../crates/andrea-llm" }
+andrea-stt = { path = "../../../crates/andrea-stt" }
+andrea-tts = { path = "../../../crates/andrea-tts" }
+andrea-hardware = { path = "../../../crates/andrea-hardware" }
+andrea-conversation = { path = "../../../crates/andrea-conversation" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 
 [features]
 # Default features for Tauri (consumed by tauri::AppBuilder)

@@ -1,13 +1,15 @@
 //! ANDREA desktop runtime — Tauri shell wiring the domain crates together.
 //!
-//! Most of the actual work lives in `andrea-license`, `andrea-db`, and
-//! `andrea-backup`. This crate exposes Tauri commands that the React
-//! frontend invokes via `@tauri-apps/api/core::invoke`.
+//! Most of the actual work lives in the `andrea-*` crates. This crate
+//! exposes Tauri commands that the React frontend invokes via
+//! `@tauri-apps/api/core::invoke`.
 
 mod commands;
 mod state;
 
 use tauri::Manager;
+
+use crate::state::AppState;
 
 /// Entry point invoked from `main.rs` or as a mobile lib entry.
 pub fn run() {
@@ -17,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::default().build())
+        .manage(AppState::from_env())
         .setup(|app| {
             // Resolve the per-user data directory and run migrations.
             let app_data = app
@@ -36,6 +39,12 @@ pub fn run() {
             commands::ping,
             commands::license_validate,
             commands::license_info,
+            commands::hardware_profile,
+            commands::recommended_model,
+            commands::minimum_ram_gb,
+            commands::chat_send_text,
+            commands::chat_reset,
+            commands::chat_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ANDREA desktop");

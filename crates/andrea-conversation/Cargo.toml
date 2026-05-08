@@ -1,0 +1,27 @@
+[package]
+name = "andrea-conversation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Conversation orchestration (LLM + STT + TTS pipeline) for ANDREA."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+andrea-llm = { path = "../andrea-llm" }
+andrea-stt = { path = "../andrea-stt" }
+andrea-tts = { path = "../andrea-tts" }
+
+async-trait = { workspace = true }
+futures-util = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }

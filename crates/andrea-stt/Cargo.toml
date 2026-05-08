@@ -1,0 +1,31 @@
+[package]
+name = "andrea-stt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Speech-to-text trait and Whisper.cpp implementation for ANDREA."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+async-trait = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }
+
+[features]
+default = []
+# When enabled, the WhisperTranscriber implementation is compiled.
+# Disabled by default to keep CI fast and avoid pulling whisper.cpp on
+# Linux runners where we have no model file. Enable on macOS / dev shells
+# via `cargo build --features whisper-cpp`.
+whisper-cpp = []
