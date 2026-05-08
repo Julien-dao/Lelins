@@ -11,6 +11,7 @@ export function ChatPanel() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelChoice | null>(null);
+  const [ragCount, setRagCount] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -19,6 +20,11 @@ export function ChatPanel() {
       .then(setModel)
       .catch((e) => setError(`hardware: ${e}`));
     ipc.chatHistory().then(setHistory).catch(() => {});
+    // Poll the RAG status briefly after startup — ingestion runs async.
+    const tick = () => ipc.ragStatus().then(setRagCount).catch(() => {});
+    tick();
+    const id = window.setInterval(tick, 1500);
+    return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -56,6 +62,11 @@ export function ChatPanel() {
           {model && (
             <p className="text-xs text-zinc-500 mt-1">
               Moteur : {model.display_name}
+              {ragCount !== null && (
+                <span className="ml-2 text-zinc-600">
+                  · Référentiel : {ragCount} extrait{ragCount > 1 ? "s" : ""}
+                </span>
+              )}
             </p>
           )}
         </div>

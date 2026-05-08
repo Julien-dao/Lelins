@@ -36,6 +36,8 @@ andrea-stt = { path = "../../../crates/andrea-stt" }
 andrea-tts = { path = "../../../crates/andrea-tts" }
 andrea-hardware = { path = "../../../crates/andrea-hardware" }
 andrea-conversation = { path = "../../../crates/andrea-conversation" }
+andrea-rag = { path = "../../../crates/andrea-rag" }
+andrea-referentiel = { path = "../../../crates/andrea-referentiel" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }

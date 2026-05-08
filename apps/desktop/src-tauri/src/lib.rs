@@ -31,8 +31,28 @@ pub fn run() {
             let _conn = andrea_db::open_with_migrations(&db_path, |progress| {
                 eprintln!("[migrations] {progress:?}");
             })?;
-            // The connection is dropped here in the skeleton; subsequent
-            // commands open their own (or share via state — to be added).
+
+            // Ingest the bootstrap référentiel chunks. Done in the setup
+            // hook (off the main thread via spawn) so the first user turn
+            // already has retrieval available. Errors are logged but do
+            // not block startup — RAG augmentation degrades gracefully.
+            let state: tauri::State<AppState> = app.state();
+            let state_clone = AppState {
+                engine: state.engine.clone(),
+                embedder: state.embedder.clone(),
+                vector_store: state.vector_store.clone(),
+                license_secret: state.license_secret.clone(),
+            };
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = state_clone.ingest_bootstrap_corpus().await {
+                    eprintln!("[rag] bootstrap ingestion failed: {e}");
+                } else {
+                    eprintln!(
+                        "[rag] bootstrap corpus ingested ({} chunks)",
+                        state_clone.vector_store.len().await
+                    );
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -45,6 +65,8 @@ pub fn run() {
             commands::chat_send_text,
             commands::chat_reset,
             commands::chat_history,
+            commands::rag_search,
+            commands::rag_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ANDREA desktop");

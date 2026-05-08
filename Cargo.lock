@@ -50,6 +50,7 @@ name = "andrea-conversation"
 version = "0.1.0"
 dependencies = [
  "andrea-llm",
+ "andrea-rag",
  "andrea-stt",
  "andrea-tts",
  "async-trait",
@@ -133,6 +134,29 @@ dependencies = [
  "tokio",
  "tracing",
  "wiremock",
+]
+
+[[package]]
+name = "andrea-rag"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "andrea-referentiel"
+version = "0.1.0"
+dependencies = [
+ "andrea-rag",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -6,6 +6,7 @@
 
 use andrea_hardware::{HardwareProfile, ModelChoice, MIN_SUPPORTED_RAM_GB};
 use andrea_license::{verify, LicenseError, Tier};
+use andrea_rag::{retrieve::search, VectorStore};
 use serde::Serialize;
 use tauri::State;
 
@@ -170,8 +171,8 @@ pub struct ChatHistoryEntry {
 
 /// Return the current conversation history (without the system prompt).
 #[tauri::command]
-pub async fn chat_history(state: State<'_, AppState>) -> Vec<ChatHistoryEntry> {
-    state
+pub async fn chat_history(state: State<'_, AppState>) -> Result<Vec<ChatHistoryEntry>, String> {
+    Ok(state
         .engine
         .history()
         .into_iter()
@@ -184,5 +185,68 @@ pub async fn chat_history(state: State<'_, AppState>) -> Vec<ChatHistoryEntry> {
             .to_string(),
             content: m.content,
         })
-        .collect()
+        .collect())
+}
+
+// ---------- RAG ----------
+
+/// One retrieved chunk shipped to the frontend.
+#[derive(Debug, Clone, Serialize)]
+pub struct RagHit {
+    /// Stable chunk identifier.
+    pub id: String,
+    /// Citation string (e.g. `REAC V07 21/12/2022, CCP1, CP3`).
+    pub citation: String,
+    /// CCP code, if any.
+    pub ccp: Option<String>,
+    /// CP code, if any.
+    pub cp: Option<String>,
+    /// First N chars of the chunk text, useful for the UI to preview.
+    pub snippet: String,
+    /// Cosine similarity in `[-1.0, 1.0]`.
+    pub score: f32,
+}
+
+const SNIPPET_CHARS: usize = 240;
+
+/// Run a RAG search and return the top hits with citations.
+#[tauri::command]
+pub async fn rag_search(
+    state: State<'_, AppState>,
+    query: String,
+    top_k: Option<usize>,
+) -> Result<Vec<RagHit>, String> {
+    let k = top_k.unwrap_or(4).clamp(1, 20);
+    let hits = search(&*state.embedder, &*state.vector_store, &query, k)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(hits
+        .into_iter()
+        .map(|h| RagHit {
+            snippet: snippet(&h.document.text),
+            id: h.document.id,
+            citation: h.document.citation,
+            ccp: h.document.ccp,
+            cp: h.document.cp,
+            score: h.score,
+        })
+        .collect())
+}
+
+/// Number of chunks currently loaded in the vector store. Useful for the
+/// UI to show "Référentiel chargé : N extraits".
+#[tauri::command]
+pub async fn rag_status(state: State<'_, AppState>) -> Result<usize, String> {
+    Ok(state.vector_store.len().await)
+}
+
+fn snippet(text: &str) -> String {
+    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.chars().count() <= SNIPPET_CHARS {
+        collapsed
+    } else {
+        let mut out: String = collapsed.chars().take(SNIPPET_CHARS).collect();
+        out.push('…');
+        out
+    }
 }

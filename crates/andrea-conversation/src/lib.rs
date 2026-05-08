@@ -21,9 +21,11 @@
 #![deny(missing_docs)]
 
 mod engine;
+mod retriever;
 mod sentence;
 
 pub use engine::{ConversationConfig, ConversationEngine, ConversationError, TextTurn, VoiceTurn};
+pub use retriever::{NoopRetriever, RagRetriever, Retriever};
 pub use sentence::split_into_sentences;
 
 // Re-export the trait types so callers do not need to import all four crates.

@@ -9,6 +9,7 @@ use andrea_llm::{ChatMessage, GenerateOptions, GenerateRequest, LlmError, LlmPro
 use andrea_stt::{TranscribeError, TranscribeOptions, Transcriber};
 use andrea_tts::{AudioBuffer, SynthesizeError, Synthesizer};
 
+use crate::retriever::{NoopRetriever, Retriever};
 use crate::sentence::split_into_sentences;
 
 /// Configuration for [`ConversationEngine`].
@@ -85,6 +86,7 @@ where
     stt: T,
     tts: S,
     config: ConversationConfig,
+    retriever: Box<dyn Retriever>,
     history: Mutex<Vec<ChatMessage>>,
 }
 
@@ -94,13 +96,28 @@ where
     T: Transcriber,
     S: Synthesizer,
 {
-    /// Build an engine with explicit dependencies.
+    /// Build an engine without RAG augmentation. Equivalent to
+    /// [`Self::with_retriever`] with a [`NoopRetriever`].
     pub fn new(llm: L, stt: T, tts: S, config: ConversationConfig) -> Self {
+        Self::with_retriever(llm, stt, tts, config, Box::new(NoopRetriever))
+    }
+
+    /// Build an engine with an explicit retriever. The retriever runs
+    /// before every LLM call and its output is injected into the system
+    /// prompt under the `== EXTRAITS DU RÉFÉRENTIEL ==` heading.
+    pub fn with_retriever(
+        llm: L,
+        stt: T,
+        tts: S,
+        config: ConversationConfig,
+        retriever: Box<dyn Retriever>,
+    ) -> Self {
         Self {
             llm,
             stt,
             tts,
             config,
+            retriever,
             history: Mutex::new(Vec::new()),
         }
     }
@@ -124,10 +141,9 @@ where
         user_message: impl Into<String>,
     ) -> Result<TextTurn, ConversationError> {
         let user = user_message.into();
-        let request = self.build_request(&user);
+        let context = self.retriever.augment(&user).await;
+        let request = self.build_request(&user, &context);
 
-        // Append the user message *now* so build_request() returns a clean
-        // structure, but we still have it in history if the call fails halfway.
         let mut answer = String::new();
         let mut count = 0;
         let mut stream = self.llm.generate_stream(request).await?;
@@ -180,14 +196,28 @@ where
         })
     }
 
-    fn build_request(&self, user_message: &str) -> GenerateRequest {
+    fn build_request(&self, user_message: &str, retrieved_context: &str) -> GenerateRequest {
         let history = self.history.lock().unwrap();
         let mut messages = Vec::with_capacity(history.len() + 2);
-        messages.push(ChatMessage::system(self.config.system_prompt.clone()));
+        messages.push(ChatMessage::system(
+            self.compose_system_prompt(retrieved_context),
+        ));
         messages.extend_from_slice(&history);
         messages.push(ChatMessage::user(user_message.to_string()));
         GenerateRequest::new(self.config.model.clone(), messages)
             .with_options(self.config.options.clone())
+    }
+
+    fn compose_system_prompt(&self, retrieved_context: &str) -> String {
+        if retrieved_context.trim().is_empty() {
+            self.config.system_prompt.clone()
+        } else {
+            format!(
+                "{base}\n\n== EXTRAITS DU RÉFÉRENTIEL ==\n{ctx}",
+                base = self.config.system_prompt,
+                ctx = retrieved_context,
+            )
+        }
     }
 }
 
@@ -347,5 +377,73 @@ mod tests {
         let cfg = ConversationConfig::andrea_default("m", "p");
         assert!((cfg.options.temperature - 0.3).abs() < f32::EPSILON);
         assert_eq!(cfg.options.num_ctx, Some(8192));
+    }
+
+    /// Retriever that returns a fixed canned context, verifying the engine
+    /// inserts it under the documented heading.
+    struct FixedRetriever(&'static str);
+
+    #[async_trait]
+    impl crate::retriever::Retriever for FixedRetriever {
+        async fn augment(&self, _query: &str) -> String {
+            self.0.to_string()
+        }
+    }
+
+    #[tokio::test]
+    async fn retriever_context_is_injected_into_system_prompt() {
+        let config = ConversationConfig::andrea_default(
+            "mistral-small3.2:24b",
+            "Tu es ANDREA, formatrice virtuelle.",
+        );
+        let engine = ConversationEngine::with_retriever(
+            MockLlm::new("ok"),
+            MockTranscriber::new("anything"),
+            MockSynthesizer::new(22_050),
+            config,
+            Box::new(FixedRetriever(
+                "[1] Source : REAC V07 21/12/2022, CCP1, CP3 (score 0.83)\n    Concevoir les activités…",
+            )),
+        );
+        engine.handle_text_turn("Question test").await.unwrap();
+        let req = engine
+            .llm
+            .last_request
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .clone();
+        let system_msg = &req.messages[0];
+        assert_eq!(system_msg.role, ChatRole::System);
+        assert!(
+            system_msg.content.contains("== EXTRAITS DU RÉFÉRENTIEL =="),
+            "system prompt missing heading: {}",
+            system_msg.content
+        );
+        assert!(system_msg.content.contains("REAC V07 21/12/2022"));
+    }
+
+    #[tokio::test]
+    async fn empty_retriever_output_skips_heading() {
+        let config = ConversationConfig::andrea_default("mistral-small3.2:24b", "Tu es ANDREA.");
+        let engine = ConversationEngine::with_retriever(
+            MockLlm::new("ok"),
+            MockTranscriber::new("any"),
+            MockSynthesizer::new(22_050),
+            config,
+            Box::new(FixedRetriever("")),
+        );
+        engine.handle_text_turn("Bonjour").await.unwrap();
+        let req = engine
+            .llm
+            .last_request
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .clone();
+        let system_msg = &req.messages[0];
+        assert!(!system_msg.content.contains("== EXTRAITS DU RÉFÉRENTIEL =="));
     }
 }

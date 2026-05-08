@@ -33,6 +33,15 @@ export type HardwareProfile = {
   os: string;
 };
 
+export type RagHit = {
+  id: string;
+  citation: string;
+  ccp: string | null;
+  cp: string | null;
+  snippet: string;
+  score: number;
+};
+
 export const ipc = {
   ping: () => invoke<string>("ping"),
 
@@ -50,4 +59,8 @@ export const ipc = {
     invoke<ChatReply>("chat_send_text", { message }),
   chatHistory: () => invoke<ChatHistoryEntry[]>("chat_history"),
   chatReset: () => invoke<void>("chat_reset"),
+
+  ragSearch: (query: string, top_k = 4) =>
+    invoke<RagHit[]>("rag_search", { query, topK: top_k }),
+  ragStatus: () => invoke<number>("rag_status"),
 };
