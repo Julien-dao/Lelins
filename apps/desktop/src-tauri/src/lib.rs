@@ -9,6 +9,10 @@ mod state;
 
 use tauri::Manager;
 
+// Brings the `len`/`is_empty` methods of the `VectorStore` trait into scope
+// for the bootstrap-corpus log line in the setup hook.
+use andrea_rag::VectorStore;
+
 use crate::state::AppState;
 
 /// Entry point invoked from `main.rs` or as a mobile lib entry.
