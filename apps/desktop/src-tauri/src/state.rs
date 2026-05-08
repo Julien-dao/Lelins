@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use andrea_conversation::{ConversationConfig, ConversationEngine, RagRetriever};
 use andrea_llm::OllamaProvider;
+use andrea_prompt::{render_formateur_v1, ProfileVars};
 use andrea_rag::{ingest::ingest_documents, InMemoryVectorStore, KeywordEmbedder};
 use andrea_referentiel::build_initial_chunks;
 use andrea_stt::MockTranscriber;
@@ -58,10 +59,9 @@ impl AppState {
             embedder.clone() as Arc<dyn andrea_rag::EmbeddingProvider>,
             vector_store.clone() as Arc<dyn andrea_rag::VectorStore>,
         );
-        let config = ConversationConfig::andrea_default(
-            "mistral-small3.2:24b",
-            DEFAULT_SYSTEM_PROMPT,
-        );
+        let system_prompt = render_formateur_v1(&ProfileVars::placeholder())
+            .expect("ANDREA Formateur v1 prompt renders with placeholder profile");
+        let config = ConversationConfig::andrea_default("mistral-small3.2:24b", system_prompt);
         let engine = Arc::new(ConversationEngine::with_retriever(
             llm,
             stt,
@@ -96,22 +96,5 @@ impl AppState {
     }
 }
 
-/// Placeholder system prompt for sub-step 3.D.
-///
-/// The full ANDREA Formateur v1 prompt (see `docs/03-systeme-prompt-...md`)
-/// is loaded from `packages/prompts/` in step 4 and rendered with profile
-/// variables. For now this short version is enough to validate the
-/// end-to-end pipeline including RAG augmentation.
-const DEFAULT_SYSTEM_PROMPT: &str = "\
-Tu es ANDREA, formatrice virtuelle experte en andragogie qui prépare les \
-apprenants au Titre Professionnel Formateur Professionnel d'Adultes \
-(RNCP n°37275, certifié par le Ministère du Travail). \
-Tu es bienveillamment exigeante. \
-Tu mobilises systématiquement les principes de Knowles. \
-Tu n'inventes JAMAIS de référence du référentiel et tu cites toujours la source. \
-Quand tu disposes d'extraits du référentiel sous le bloc « EXTRAITS DU \
-RÉFÉRENTIEL », tu les cites explicitement dans ta réponse au format \
-« Source : REAC V07 21/12/2022, CCPx, CPy ». \
-Si aucun extrait pertinent n'est fourni, tu indiques que ta réponse \
-s'appuie sur ta connaissance générale du métier et tu invites l'apprenant \
-à vérifier sur la fiche officielle France Compétences.";
+// (DEFAULT_SYSTEM_PROMPT removed — the production prompt is now rendered
+// from `packages/prompts/andrea-formateur-v1.md` via `andrea-prompt`.)

@@ -13,6 +13,8 @@ members = [
     "crates/andrea-conversation",
     "crates/andrea-rag",
     "crates/andrea-referentiel",
+    "crates/andrea-prompt",
+    "crates/andrea-onboarding",
     # "apps/desktop/src-tauri",  # added in step 1.F once scaffolded
 ]
 default-members = [
@@ -28,6 +30,8 @@ default-members = [
     "crates/andrea-conversation",
     "crates/andrea-rag",
     "crates/andrea-referentiel",
+    "crates/andrea-prompt",
+    "crates/andrea-onboarding",
 ]
 
 [workspace.package]

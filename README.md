@@ -15,10 +15,15 @@ affilié au Ministère du Travail ni à l'AFPA.
 
 ## État du projet
 
-🚧 **Phase 0 — Cadrage et architecture (en cours, mai 2026)**
+🛠️ **Phase 1 — Étapes 1 à 8 livrées (côté testable sur Linux)**
 
-Aucune ligne de code applicatif écrite à ce stade. Les documents de stratégie
-sont dans `docs/`.
+15 crates Rust + frontend Tauri/React/Tailwind, **211 tests verts**, fmt +
+clippy clean. Tout ce qui demande un Mac (Tauri runtime, build natif,
+notarization, Whisper réel, Piper réel, Ollama réel) est documenté pour
+être complété sur ta machine. Voir `docs/06-plan-etapes.md` et les
+commits sur la branche.
+
+Documents de stratégie : `docs/`.
 
 | Document | Statut |
 |---|---|

@@ -137,6 +137,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "andrea-onboarding"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "andrea-prompt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "andrea-rag"
 version = "0.1.0"
 dependencies = [

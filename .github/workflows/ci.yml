@@ -51,3 +51,37 @@ jobs:
           echo "Generated: $KEY"
           cargo run --quiet --bin andrea-license -- verify \
             --key "$KEY" --email test@andrea-formation.fr
+
+  # Tauri app build : ensures the desktop crate (which lives outside the
+  # default workspace members on Linux because it needs webkit2gtk) still
+  # compiles on macOS arm64 and Windows. This is a check-only pass — the
+  # actual signed bundles are produced by `release.yml` on tag.
+  tauri-check:
+    name: Tauri app — typecheck + cargo check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/desktop
+        continue-on-error: false
+      - name: TypeScript build
+        run: pnpm build:vite
+        working-directory: apps/desktop
+      - name: cargo check (desktop crate)
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
