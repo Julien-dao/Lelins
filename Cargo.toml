@@ -15,8 +15,13 @@ members = [
     "crates/andrea-referentiel",
     "crates/andrea-prompt",
     "crates/andrea-onboarding",
-    # "apps/desktop/src-tauri",  # added in step 1.F once scaffolded
 ]
+# The Tauri desktop crate is intentionally excluded from the workspace —
+# `webkit2gtk` is unavailable on the Linux CI runner that drives `cargo
+# test --workspace`. It builds standalone on macOS and Windows via
+# `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`, with
+# its own `[workspace]` table at the bottom of that manifest.
+exclude = ["apps/desktop/src-tauri"]
 default-members = [
     "crates/andrea-license",
     "crates/andrea-db",

@@ -13,6 +13,13 @@ pnpm-debug.log*
 dist/
 build/
 
+# TypeScript incremental build artifacts
+*.tsbuildinfo
+
+# Generated declaration files for config
+apps/desktop/vite.config.js
+apps/desktop/vite.config.d.ts
+
 # IDE
 .vscode/
 .idea/

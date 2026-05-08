@@ -41,11 +41,17 @@ andrea-referentiel = { path = "../../../crates/andrea-referentiel" }
 andrea-prompt = { path = "../../../crates/andrea-prompt" }
 andrea-onboarding = { path = "../../../crates/andrea-onboarding" }
 
-serde = { workspace = true }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread", "fs", "io-util", "sync", "time", "process"] }
 
 [features]
 # Default features for Tauri (consumed by tauri::AppBuilder)
 custom-protocol = ["tauri/custom-protocol"]
+
+# This crate is its own workspace root: the parent Cargo.toml lists it
+# under `workspace.exclude` because `webkit2gtk` is not available on the
+# Linux CI runner that drives `cargo test --workspace`. The desktop crate
+# is built standalone on macOS and Windows in the `tauri-check` job.
+[workspace]
