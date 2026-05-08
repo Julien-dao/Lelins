@@ -1,0 +1,20 @@
+[package]
+name = "andrea-backup"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Encrypted .andrea-backup format (XChaCha20Poly1305 + Argon2id)."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+argon2 = { workspace = true }
+chacha20poly1305 = { workspace = true }
+rand_core = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+zstd = { workspace = true }

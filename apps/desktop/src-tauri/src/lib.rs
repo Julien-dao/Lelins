@@ -1,0 +1,42 @@
+//! ANDREA desktop runtime — Tauri shell wiring the domain crates together.
+//!
+//! Most of the actual work lives in `andrea-license`, `andrea-db`, and
+//! `andrea-backup`. This crate exposes Tauri commands that the React
+//! frontend invokes via `@tauri-apps/api/core::invoke`.
+
+mod commands;
+mod state;
+
+use tauri::Manager;
+
+/// Entry point invoked from `main.rs` or as a mobile lib entry.
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::default().build())
+        .setup(|app| {
+            // Resolve the per-user data directory and run migrations.
+            let app_data = app
+                .path()
+                .app_data_dir()
+                .expect("platform must provide an app data dir");
+            std::fs::create_dir_all(&app_data).ok();
+            let db_path = app_data.join("andrea.db");
+            let _conn = andrea_db::open_with_migrations(&db_path, |progress| {
+                eprintln!("[migrations] {progress:?}");
+            })?;
+            // The connection is dropped here in the skeleton; subsequent
+            // commands open their own (or share via state — to be added).
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::ping,
+            commands::license_validate,
+            commands::license_info,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running ANDREA desktop");
+}
