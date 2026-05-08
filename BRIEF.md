@@ -54,10 +54,12 @@ application** dont les fonctionnalités sont déverrouillées par clé de licenc
 
 ### ANDREA Maître — 299 € (sortie cible : v3)
 - Tout le contenu Pro
-- Module spécifique VAE
 - Suivi de cohorte (pour formateurs FPA accompagnant leurs apprenants)
 - Export des évaluations en PDF pour archivage Qualiopi
 - Bibliothèque de scénarios pédagogiques avancés
+
+> **Mise à jour 6/5/2026** : module VAE retiré du périmètre (décision Julien).
+> Voir `docs/08-decisions.md`.
 
 ### Politique d'upgrade (CRITIQUE pour la confiance utilisateur)
 

@@ -596,9 +596,9 @@ export const SPACES = [
   { id: 'dp',          tier: 'PRO',    route: '/dp' },
   { id: 'msp',         tier: 'PRO',    route: '/msp' },
   { id: 'jury',        tier: 'PRO',    route: '/jury' },
-  { id: 'vae',         tier: 'MAITRE', route: '/vae' },
   { id: 'cohort',      tier: 'MAITRE', route: '/cohort' },
   { id: 'qualiopi',    tier: 'MAITRE', route: '/qualiopi' },
+  { id: 'scenarios',   tier: 'MAITRE', route: '/scenarios' },
 ] as const;
 
 const TIER_RANK = { DECO: 0, PRO: 1, MAITRE: 2 };

@@ -375,7 +375,8 @@ réaliste**, M+4 confortable.
 
 ## Phase 3 — ANDREA Maître (vue rapide, M+9 ou M+12)
 
-- Module VAE
-- Suivi de cohorte (vue formateur)
+- Suivi de cohorte (vue formateur, plusieurs apprenants)
 - Exports Qualiopi PDF
 - Bibliothèque scénarios pédagogiques avancés
+
+(Module VAE retiré du périmètre — décision Julien le 6/5/2026.)

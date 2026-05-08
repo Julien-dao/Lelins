@@ -189,6 +189,6 @@
 | 5 | Sidecar Piper GPL-3.0 et propriété ANDREA | Juridique | Moyen | Conseil juridique avant lancement |
 | 6 | Crack du système de licence | Sécurité | Faible (assumé) | Modèle de menace clarifié |
 | 7 | Migration BDD qui casse | Données | Critique | Backup auto + rollback transactionnel |
-| 8 | Évolution VAE inversée (échue 28/02/2026) | Réglementaire | Moyen | Veille active, clause CGV update 60j |
+| 8 | ~~Évolution VAE inversée~~ — sans objet, module VAE retiré du périmètre | — | — | — |
 | 9 | Prompt qui dérive en sessions longues | Pédagogie | Moyen | Résumé intermédiaire + tests longs |
 | 10 | Webhook Gumroad qui plante | Opérationnel | Moyen | Monitoring + fallback manuel |

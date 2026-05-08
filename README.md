@@ -31,6 +31,7 @@ sont dans `docs/`.
 | [`docs/05-stack-technique.md`](docs/05-stack-technique.md) | ✅ Recherche stack 2026 |
 | [`docs/06-plan-etapes.md`](docs/06-plan-etapes.md) | ✅ Plan d'étapes Phase 1 |
 | [`docs/07-risques.md`](docs/07-risques.md) | ✅ Risques juridiques & techniques |
+| [`docs/08-decisions.md`](docs/08-decisions.md) | ✅ Décisions actées (8 questions tranchées) |
 
 Phase 1 — Développement ANDREA Découverte : sur feu vert.
 
@@ -42,7 +43,7 @@ Phase 1 — Développement ANDREA Découverte : sur feu vert.
 |---|---|---|
 | ANDREA Découverte | 99 € | Conversation FPA + suivi de progression |
 | ANDREA Pro | 199 € | + Évaluation documents, simulateur jury, MSP |
-| ANDREA Maître | 299 € | + VAE, suivi de cohorte, exports Qualiopi |
+| ANDREA Maître | 299 € | + Suivi de cohorte, exports Qualiopi, scénarios avancés |
 | Bundle « Le Titre en main » | 449 € (au lieu de 597 €) | Tout |
 
 Politique d'upgrade : on paie la différence entre tiers. Aucune perte de
