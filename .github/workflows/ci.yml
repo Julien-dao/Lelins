@@ -83,5 +83,19 @@ jobs:
       - name: TypeScript build
         run: pnpm build:vite
         working-directory: apps/desktop
+      - name: Debug — list icons + dump tauri config
+        shell: bash
+        run: |
+          echo "=== icons present ==="
+          ls -la apps/desktop/src-tauri/icons/
+          echo "=== tauri.conf.json ==="
+          cat apps/desktop/src-tauri/tauri.conf.json
+          echo "=== dist exists? ==="
+          ls -la apps/desktop/dist/ | head -20
       - name: cargo check (desktop crate)
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --verbose 2>&1
+      # Don't bury the failure — re-run so the precise stderr makes it into
+      # the annotation if `--verbose` swallowed it.
+      - name: cargo check (desktop crate, fallback no-verbose)
+        if: failure()
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml

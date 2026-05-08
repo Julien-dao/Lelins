@@ -21,9 +21,7 @@
         "center": true,
         "decorations": true,
         "fullscreen": false,
-        "transparent": false,
-        "theme": null,
-        "titleBarStyle": "Transparent"
+        "transparent": false
       }
     ],
     "security": {
@@ -44,29 +42,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "macOS": {
-      "minimumSystemVersion": "11.0",
-      "hardenedRuntime": true,
-      "entitlements": null
-    },
-    "windows": {
-      "wix": {
-        "language": "fr-FR"
-      }
-    }
+    ]
   },
-  "plugins": {
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/Julien-dao/Lelins/releases/latest/download/latest.json"
-      ],
-      "dialog": false,
-      "pubkey": "REPLACE_WITH_MINISIGN_PUBKEY_BEFORE_RELEASE"
-    },
-    "fs": {
-      "scope": ["$APPDATA", "$APPDATA/**", "$APPCONFIG", "$APPCONFIG/**"]
-    }
-  }
+  "plugins": {}
 }
