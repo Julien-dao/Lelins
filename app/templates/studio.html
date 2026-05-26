@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Studio visuel - Essayage IA{% endblock %}
+{% block content %}
+<h1>Studio visuel &mdash; essayage IA</h1>
+<p class="lead">
+  Decris un mannequin, uploade la photo de ton produit : l'IA genere le corps
+  puis l'habille avec ton sous-vetement, en respectant les volumes (essayage
+  virtuel, pas un simple collage).
+</p>
+
+{% if not studio_configured %}
+<div class="alert alert-warn">
+  <strong>Studio non active.</strong> Pour generer des images, il faut brancher
+  un fournisseur : cree un compte (ex. <a href="https://fal.ai" target="_blank" rel="noopener">fal.ai</a>),
+  recupere une cle API, puis ajoute dans les <em>Secrets</em> du Space :
+  <code>IMAGE_PROVIDER=fal</code> et <code>IMAGE_API_KEY=ta_cle</code>.
+  Tu peux deja tester le formulaire ci-dessous : l'image produit s'affichera en apercu.
+</div>
+{% endif %}
+
+<div class="alert alert-warn">
+  <strong>A savoir :</strong> le sous-vetement est la categorie la plus
+  difficile pour l'essayage IA, et les filtres anti-contenu des fournisseurs
+  peuvent refuser certaines images (meme sans nudite). On itere selon les
+  resultats reels.
+</div>
+
+<form method="post" class="form" enctype="multipart/form-data">
+  <label>Description du mannequin
+    <textarea name="prompt" rows="3" placeholder="homme 30 ans, athletique, peau claire, debout de face, fond gris clair">{{ prompt or '' }}</textarea>
+  </label>
+  <label>Photo du produit (sous-vetement)
+    <input type="file" name="garment" accept="image/*" required />
+  </label>
+  <label>Categorie du vetement
+    <select name="category">
+      <option value="bottoms" {% if category == 'bottoms' %}selected{% endif %}>Bas (boxer, slip, short)</option>
+      <option value="tops" {% if category == 'tops' %}selected{% endif %}>Haut (t-shirt, debardeur)</option>
+      <option value="one-pieces" {% if category == 'one-pieces' %}selected{% endif %}>Une piece</option>
+    </select>
+  </label>
+  <button type="submit">Generer le visuel</button>
+</form>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if garment_preview or mannequin_url or result_url %}
+<section class="studio-results">
+  {% if garment_preview %}
+  <figure class="studio-fig">
+    <img src="{{ garment_preview }}" alt="Produit uploade" />
+    <figcaption>Produit fourni</figcaption>
+  </figure>
+  {% endif %}
+  {% if mannequin_url %}
+  <figure class="studio-fig">
+    <img src="{{ mannequin_url }}" alt="Mannequin genere" referrerpolicy="no-referrer" />
+    <figcaption>Mannequin genere</figcaption>
+  </figure>
+  {% endif %}
+  {% if result_url %}
+  <figure class="studio-fig studio-fig-final">
+    <img src="{{ result_url }}" alt="Rendu final" referrerpolicy="no-referrer" />
+    <figcaption>Rendu final (essayage)</figcaption>
+  </figure>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
