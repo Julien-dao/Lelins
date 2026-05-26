@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 
 from app.agents.copywriter import CopywriterAgent, ProductBrief
 from app.routers._helpers import base_context, format_error, resolve_brand, templates
+from app.web_import import ImportError_, import_product
 
 router = APIRouter(prefix="/copywriter", tags=["copywriter"])
 
@@ -12,7 +13,60 @@ async def form(request: Request, brand: str | None = None) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "copywriter.html",
-        {**base_context(request, brand), "result": None, "error": None, "form_data": {}},
+        {
+            **base_context(request, brand),
+            "result": None,
+            "error": None,
+            "form_data": {},
+            "imported": None,
+        },
+    )
+
+
+@router.post("/import", response_class=HTMLResponse)
+async def import_and_generate(
+    request: Request,
+    url: str = Form(...),
+    brand: str = Form(default=""),
+) -> HTMLResponse:
+    result, error, imported = None, None, None
+    form_data: dict = {}
+    try:
+        imported = await import_product(url)
+        if imported.is_empty:
+            error = (
+                "Aucune info produit détectée sur cette page (pas de balises "
+                "Open Graph ni de données structurées). Saisis le brief à la main."
+            )
+        else:
+            form_data = {
+                "product_name": imported.title,
+                "category": "",
+                "materials": "",
+                "sizes": "",
+                "colors": "",
+                "price": imported.price,
+                "key_benefits": imported.description,
+                "target_keyword": "",
+            }
+            brand_profile = resolve_brand(brand or None)
+            agent = CopywriterAgent(brand=brand_profile)
+            result = await agent.write_product_page(ProductBrief(**form_data))
+    except ImportError_ as exc:
+        error = str(exc)
+    except Exception as exc:
+        error = format_error(exc)
+
+    return templates.TemplateResponse(
+        request,
+        "copywriter.html",
+        {
+            **base_context(request, brand or None),
+            "result": result,
+            "error": error,
+            "form_data": form_data,
+            "imported": imported,
+        },
     )
 
 
@@ -56,5 +110,6 @@ async def submit(
             "result": result,
             "error": error,
             "form_data": form_data,
+            "imported": None,
         },
     )

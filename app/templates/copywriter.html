@@ -5,6 +5,28 @@
 <h1>Copywriter &mdash; fiche produit</h1>
 <p class="lead">Genere une fiche produit complete a partir d'un brief court.</p>
 
+<section class="import-box">
+  <h2>Importer depuis le web</h2>
+  <p class="hint">Colle l'URL d'une fiche produit existante : on recupere titre, prix, description et image, puis on genere directement une version amelioree.</p>
+  <form method="post" action="/copywriter/import" class="import-form">
+    <input type="url" name="url" placeholder="https://exemple.com/produit/..." required />
+    <input type="hidden" name="brand" value="{{ active_brand }}" />
+    <button type="submit">Importer et generer</button>
+  </form>
+</section>
+
+{% if imported and imported.image_url %}
+<section class="source-preview">
+  <img src="{{ imported.image_url }}" alt="Image du produit source" class="source-img" referrerpolicy="no-referrer" />
+  <div class="source-meta">
+    <h3>Produit source</h3>
+    {% if imported.title %}<p class="source-title">{{ imported.title }}</p>{% endif %}
+    {% if imported.price %}<p class="source-price">{{ imported.price }}</p>{% endif %}
+    <p><a href="{{ imported.source_url }}" target="_blank" rel="noopener">Voir la page d'origine</a></p>
+  </div>
+</section>
+{% endif %}
+
 <form method="post" class="form">
   {{ brand_select(brands, active_brand) }}
 
