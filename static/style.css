@@ -218,6 +218,35 @@ a:hover { text-decoration: underline; }
   overflow-x: auto;
 }
 
+.studio-results {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.studio-fig {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  text-align: center;
+}
+.studio-fig img {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.studio-fig figcaption {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+.studio-fig-final { border-color: var(--accent); }
+.studio-fig-final figcaption { color: var(--accent-2); font-weight: 600; }
+
 .footer {
   text-align: center;
   color: var(--muted);

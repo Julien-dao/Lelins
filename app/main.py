@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.brands import BRANDS
 from app.config import get_settings
-from app.routers import ads, copywriter, email, social
+from app.routers import ads, copywriter, email, social, studio
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -23,6 +23,7 @@ app.include_router(copywriter.router)
 app.include_router(email.router)
 app.include_router(social.router)
 app.include_router(ads.router)
+app.include_router(studio.router)
 
 
 @app.get("/", response_class=HTMLResponse)
