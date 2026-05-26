@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_form_layout.html" import brand_select, result_block %}
+{% block title %}Email marketing{% endblock %}
+{% block content %}
+<h1>Email marketing</h1>
+<p class="lead">Bienvenue, panier abandonne, post-achat, win-back, drops...</p>
+
+<form method="post" class="form">
+  {{ brand_select(brands, active_brand) }}
+
+  <label>Type d'email*
+    <select name="email_type" required>
+      {% for key, desc in email_types.items() %}
+        <option value="{{ key }}" {% if form_data.email_type == key %}selected{% endif %}>{{ key }} &mdash; {{ desc }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Produit ou offre mise en avant
+    <input type="text" name="product_or_offer" value="{{ form_data.product_or_offer or '' }}" />
+  </label>
+  <label>Segment client
+    <input type="text" name="customer_segment" placeholder="VIP, nouveaux, inactifs..." value="{{ form_data.customer_segment or '' }}" />
+  </label>
+  <label>Contexte additionnel
+    <textarea name="extra_context" rows="3">{{ form_data.extra_context or '' }}</textarea>
+  </label>
+
+  <button type="submit">Generer l'email</button>
+</form>
+
+{{ result_block(result, error) }}
+{% endblock %}
