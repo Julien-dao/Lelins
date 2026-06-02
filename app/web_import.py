@@ -32,6 +32,26 @@ class ProductImport:
     def is_empty(self) -> bool:
         return not (self.title or self.description or self.price)
 
+    @property
+    def has_preview(self) -> bool:
+        return bool(self.image_url or self.title or self.price)
+
+
+def imported_from_form(
+    image_url: str = "",
+    source_url: str = "",
+    title: str = "",
+    price: str = "",
+) -> ProductImport | None:
+    """Reconstruit un ProductImport a partir des champs caches d'un formulaire."""
+    obj = ProductImport(
+        title=title or "",
+        price=price or "",
+        image_url=image_url or "",
+        source_url=source_url or "",
+    )
+    return obj if obj.has_preview else None
+
 
 def _clean(value: str) -> str:
     if not value:

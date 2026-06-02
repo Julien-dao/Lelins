@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 
 from app.agents.copywriter import CopywriterAgent, ProductBrief
 from app.routers._helpers import base_context, format_error, resolve_brand, templates
-from app.web_import import ImportError_, import_product
+from app.web_import import ImportError_, import_product, imported_from_form
 
 router = APIRouter(prefix="/copywriter", tags=["copywriter"])
 
@@ -35,8 +35,8 @@ async def import_and_generate(
         imported = await import_product(url)
         if imported.is_empty:
             error = (
-                "Aucune info produit détectée sur cette page (pas de balises "
-                "Open Graph ni de données structurées). Saisis le brief à la main."
+                "Aucune info produit detectee sur cette page (pas de balises "
+                "Open Graph ni de donnees structurees). Saisis le brief a la main."
             )
         else:
             form_data = {
@@ -82,6 +82,10 @@ async def submit(
     price: str = Form(default=""),
     key_benefits: str = Form(default=""),
     target_keyword: str = Form(default=""),
+    imported_image_url: str = Form(default=""),
+    imported_source_url: str = Form(default=""),
+    imported_title: str = Form(default=""),
+    imported_price: str = Form(default=""),
 ) -> HTMLResponse:
     form_data = {
         "product_name": product_name,
@@ -110,6 +114,11 @@ async def submit(
             "result": result,
             "error": error,
             "form_data": form_data,
-            "imported": None,
+            "imported": imported_from_form(
+                image_url=imported_image_url,
+                source_url=imported_source_url,
+                title=imported_title,
+                price=imported_price,
+            ),
         },
     )

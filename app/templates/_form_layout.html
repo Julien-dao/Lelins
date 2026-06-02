@@ -20,3 +20,40 @@
   </section>
 {% endif %}
 {% endmacro %}
+
+{% macro import_box(action_url, brand_slug) %}
+<section class="import-box">
+  <h2>Importer depuis le web</h2>
+  <p class="hint">Colle l'URL d'une fiche produit existante : on recupere titre, prix, description et image, puis on genere directement.</p>
+  <form method="post" action="{{ action_url }}" class="import-form">
+    <input type="url" name="url" placeholder="https://exemple.com/produit/..." required />
+    <input type="hidden" name="brand" value="{{ brand_slug }}" />
+    <button type="submit">Importer et generer</button>
+  </form>
+</section>
+{% endmacro %}
+
+{% macro source_preview(imported) %}
+{% if imported and (imported.image_url or imported.title or imported.price) %}
+<section class="source-preview">
+  {% if imported.image_url %}
+  <img src="{{ imported.image_url }}" alt="Image du produit source" class="source-img" referrerpolicy="no-referrer" />
+  {% endif %}
+  <div class="source-meta">
+    <h3>Produit source</h3>
+    {% if imported.title %}<p class="source-title">{{ imported.title }}</p>{% endif %}
+    {% if imported.price %}<p class="source-price">{{ imported.price }}</p>{% endif %}
+    {% if imported.source_url %}<p><a href="{{ imported.source_url }}" target="_blank" rel="noopener">Voir la page d'origine</a></p>{% endif %}
+  </div>
+</section>
+{% endif %}
+{% endmacro %}
+
+{% macro imported_hidden(imported) %}
+{% if imported %}
+  <input type="hidden" name="imported_image_url" value="{{ imported.image_url or '' }}" />
+  <input type="hidden" name="imported_source_url" value="{{ imported.source_url or '' }}" />
+  <input type="hidden" name="imported_title" value="{{ imported.title or '' }}" />
+  <input type="hidden" name="imported_price" value="{{ imported.price or '' }}" />
+{% endif %}
+{% endmacro %}
