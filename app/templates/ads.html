@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_form_layout.html" import brand_select, result_block, import_box, source_preview, imported_hidden %}
+{% block title %}Publicites{% endblock %}
+{% block content %}
+<h1>Publicites direct response</h1>
+<p class="lead">Variantes pretes a tester sur Meta, Google, TikTok.</p>
+
+{{ import_box('/ads/import', active_brand) }}
+{{ source_preview(imported) }}
+
+<form method="post" class="form">
+  {{ brand_select(brands, active_brand) }}
+  {{ imported_hidden(imported) }}
+
+  <label>Plateforme*
+    <select name="platform" required>
+      {% for key, desc in ad_platforms.items() %}
+        <option value="{{ key }}" {% if form_data.platform == key %}selected{% endif %}>{{ key }} &mdash; {{ desc }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Produit ou offre*
+    <input type="text" name="product_or_offer" required value="{{ form_data.product_or_offer or '' }}" />
+  </label>
+  <label>Persona cible
+    <input type="text" name="target_persona" value="{{ form_data.target_persona or '' }}" />
+  </label>
+  <label>Douleur / desir adresse
+    <input type="text" name="pain_or_desire" value="{{ form_data.pain_or_desire or '' }}" />
+  </label>
+  <label>Promo ou incentive
+    <input type="text" name="promo" placeholder="-10%, livraison offerte..." value="{{ form_data.promo or '' }}" />
+  </label>
+  <label>Nombre de variantes
+    <input type="number" name="n_variants" min="1" max="8" value="{{ form_data.n_variants or 4 }}" />
+  </label>
+
+  <button type="submit">Generer les pubs</button>
+</form>
+
+{{ result_block(result, error) }}
+{% endblock %}

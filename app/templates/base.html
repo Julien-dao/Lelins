@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Agence virtuelle - Lelins{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Agence virtuelle</a>
+    <nav class="nav">
+      <a href="/copywriter">Fiches produits</a>
+      <a href="/email">Emails</a>
+      <a href="/social">Social media</a>
+      <a href="/ads">Publicites</a>
+      <a href="/studio">Studio visuel</a>
+    </nav>
+    <div class="meta">
+      <span class="model-badge" title="Modele Mistral utilise">{{ model }}</span>
+      {% if not mistral_configured %}
+        <span class="badge badge-warn">Cle Mistral manquante</span>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <small>Propulse par Mistral (free tier). Aucun contenu n'est stocke par cette interface.</small>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_form_layout.html" import brand_select, result_block, import_box, source_preview, imported_hidden %}
+{% block title %}Copywriter - Fiches produits{% endblock %}
+{% block content %}
+<h1>Copywriter &mdash; fiche produit</h1>
+<p class="lead">Genere une fiche produit complete a partir d'un brief court.</p>
+
+{{ import_box('/copywriter/import', active_brand) }}
+{{ source_preview(imported) }}
+
+<form method="post" class="form">
+  {{ brand_select(brands, active_brand) }}
+  {{ imported_hidden(imported) }}
+
+  <label>Nom du produit*
+    <input type="text" name="product_name" required value="{{ form_data.product_name or '' }}" />
+  </label>
+  <label>Categorie
+    <input type="text" name="category" placeholder="boxer, t-shirt..." value="{{ form_data.category or '' }}" />
+  </label>
+  <label>Matieres
+    <input type="text" name="materials" placeholder="95% coton bio, 5% elasthanne" value="{{ form_data.materials or '' }}" />
+  </label>
+  <label>Tailles
+    <input type="text" name="sizes" placeholder="S, M, L, XL" value="{{ form_data.sizes or '' }}" />
+  </label>
+  <label>Couleurs
+    <input type="text" name="colors" placeholder="noir, blanc, marine" value="{{ form_data.colors or '' }}" />
+  </label>
+  <label>Prix
+    <input type="text" name="price" placeholder="19,90 EUR" value="{{ form_data.price or '' }}" />
+  </label>
+  <label>Benefices cles
+    <textarea name="key_benefits" rows="3">{{ form_data.key_benefits or '' }}</textarea>
+  </label>
+  <label>Mot-cle SEO cible
+    <input type="text" name="target_keyword" placeholder="boxer homme coton bio" value="{{ form_data.target_keyword or '' }}" />
+  </label>
+
+  <button type="submit">Generer la fiche</button>
+</form>
+
+{{ result_block(result, error) }}
+{% endblock %}
