@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% from "_form_layout.html" import brand_select, result_block %}
+{% from "_form_layout.html" import brand_select, result_block, import_box, source_preview, imported_hidden %}
 {% block title %}Publicites{% endblock %}
 {% block content %}
 <h1>Publicites direct response</h1>
 <p class="lead">Variantes pretes a tester sur Meta, Google, TikTok.</p>
 
+{{ import_box('/ads/import', active_brand) }}
+{{ source_preview(imported) }}
+
 <form method="post" class="form">
   {{ brand_select(brands, active_brand) }}
+  {{ imported_hidden(imported) }}
 
   <label>Plateforme*
     <select name="platform" required>

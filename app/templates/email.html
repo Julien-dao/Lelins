@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% from "_form_layout.html" import brand_select, result_block %}
+{% from "_form_layout.html" import brand_select, result_block, import_box, source_preview, imported_hidden %}
 {% block title %}Email marketing{% endblock %}
 {% block content %}
 <h1>Email marketing</h1>
 <p class="lead">Bienvenue, panier abandonne, post-achat, win-back, drops...</p>
 
+{{ import_box('/email/import', active_brand) }}
+{{ source_preview(imported) }}
+
 <form method="post" class="form">
   {{ brand_select(brands, active_brand) }}
+  {{ imported_hidden(imported) }}
 
   <label>Type d'email*
     <select name="email_type" required>
